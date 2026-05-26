@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+
+# generated at runtime — not part of the source
+highscores.json
+*.wav
+
+# editor
+.vscode/
+.idea/
+*.swp
+
+# virtual envs
+venv/
+.env/
