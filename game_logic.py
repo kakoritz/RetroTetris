@@ -24,8 +24,7 @@ from game_constants import (
     FLASH_MS, FLASH_TOTAL, FLASH_MS_WOW, FLASH_TOTAL_WOW,
     TSPIN_SCORES, TSPIN_MINI_SCORES, COMBO_BONUS_UNIT,
     WOW_BONUS, WOW_POPUP_DURATION, COLOR_CLEAR_BONUS,
-    SHAKE_DURATION, POPUP_DURATION, CASCADE_INTERVAL_GROWTH,
-    SPEED_RESET_INTERVAL, SPEED_RESET_FLASH_DURATION, CASCADE_BONUS_PER_RESET,
+    SHAKE_DURATION, POPUP_DURATION, LEVEL_POPUP_DURATION,
 )
 from game_state import GameState
 from app_state import (
@@ -261,7 +260,7 @@ def tick_clearing(gs: GameState, app: AppState, dt: int) -> None:
     if btb_bonus:
         base_score = int(base_score * 1.5)
 
-    clear_delta = int(base_score * cascade_mult * danger_mult * gs.reset_bonus_mult)
+    clear_delta = int(base_score * cascade_mult * danger_mult)
     gs.score   += clear_delta
 
     if clear_delta > 0:
@@ -326,23 +325,15 @@ def tick_clearing(gs: GameState, app: AppState, dt: int) -> None:
     old_level = gs.level
     gs.level  = gs.lines // 10 + 1
     if gs.level > old_level:
-        gs.speed_tier = min(gs.speed_tier + (gs.level - old_level), 20)
-        gs.level_up_flash_timer = 700
+        gs.speed_tier             = min(gs.speed_tier + (gs.level - old_level), 20)
+        gs.level_up_flash_timer   = 700
+        gs.level_popup_timer      = LEVEL_POPUP_DURATION
+        gs.level_popup_num        = gs.level
+        gs.level_cascade_pending  = True   # force cascade animation on this clear
         audio.play('levelup')
         if old_level < GRAVITY_20G_LEVEL <= gs.level:
             gs.popup_count = 14
             gs.popup_timer = int(POPUP_DURATION * 1.5)
-
-    speed_reset_triggered = False
-    while gs.score >= gs.next_speed_reset:
-        gs.next_speed_reset  += SPEED_RESET_INTERVAL + gs.speed_reset_count * CASCADE_INTERVAL_GROWTH
-        gs.speed_tier         = 1
-        gs.speed_reset_count += 1
-        gs.reset_bonus_mult   = round(1.0 + gs.speed_reset_count * 0.1, 1)
-        gs.full_cascade_mode  = not gs.full_cascade_mode
-        speed_reset_triggered = True
-    if speed_reset_triggered:
-        gs.speed_reset_flash_timer = SPEED_RESET_FLASH_DURATION
 
     app.best = max(app.best, gs.score)
 
@@ -411,8 +402,9 @@ def tick_clearing(gs: GameState, app: AppState, dt: int) -> None:
     gs.tspin_type = None
 
     # ── cascade check ─────────────────────────────────────────────────────────
-    if gs.full_cascade_mode:
-        app.cascade_anim_timer = 0
+    if gs.level_cascade_pending:
+        gs.level_cascade_pending = False
+        app.cascade_anim_timer   = 0
         app.state = CASCADING
     else:
         gs.board.settle_blocks()
@@ -451,8 +443,8 @@ def tick_cascading(gs: GameState, app: AppState, dt: int) -> None:
         _setup_cascade_clear(gs, cascade_rows)
         app.state = CLEARING
     else:
-        # Cascade fully settled — award end-of-cascade bonus.
-        cascade_end_bonus = 500 + CASCADE_BONUS_PER_RESET * gs.speed_reset_count
+        # Cascade fully settled — award a small end-of-cascade bonus.
+        cascade_end_bonus = 500 * (gs.cascade_level + 1)
         gs.score += cascade_end_bonus
         gs.score_deltas.append({
             'text':      f"+{cascade_end_bonus:,}",
@@ -463,13 +455,6 @@ def tick_cascading(gs: GameState, app: AppState, dt: int) -> None:
             'timer':     1600,
             'max_timer': 1600,
         })
-        while gs.score >= gs.next_speed_reset:
-            gs.next_speed_reset        += SPEED_RESET_INTERVAL + gs.speed_reset_count * CASCADE_INTERVAL_GROWTH
-            gs.speed_tier               = 1
-            gs.speed_reset_count       += 1
-            gs.reset_bonus_mult         = round(1.0 + gs.speed_reset_count * 0.1, 1)
-            gs.full_cascade_mode        = not gs.full_cascade_mode
-            gs.speed_reset_flash_timer  = SPEED_RESET_FLASH_DURATION
         app.best              = max(app.best, gs.score)
         gs.first_clear_tetris = False
         gs.cascade_level      = 0

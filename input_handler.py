@@ -29,7 +29,7 @@ from game_state import GameState
 from app_state import (
     AppState,
     MENU, PLAYING, CLEARING, CASCADING, GAME_OVER, ENTER_NAME,
-    LEADERBOARD, SETTINGS, GAME_OVER_ANIM, PAUSED, MUSIC_TEST,
+    LEADERBOARD, SETTINGS, GAME_OVER_ANIM, PAUSED, MUSIC_TEST, DEMO,
 )
 from game_logic import (
     start_new_game, end_game, do_hold, do_lock,
@@ -95,6 +95,7 @@ def handle_input(gs: GameState, app: AppState, dt: int) -> None:
 
         # ── MENU ─────────────────────────────────────────────────────────────
         if app.state == MENU:
+            app.menu_idle_timer = 0   # any key resets the idle countdown
             if event.key in (pygame.K_SPACE, pygame.K_RETURN, pygame.K_KP_ENTER):
                 start_new_game(gs, app)
                 app.best = highscore.best()
@@ -110,6 +111,10 @@ def handle_input(gs: GameState, app: AppState, dt: int) -> None:
                 music.fadeout(300)
                 music_game.start_level(app.music_test_tier)
                 app.state = MUSIC_TEST
+            elif event.key == pygame.K_d:
+                import demo as _dm
+                music.fadeout(300)
+                _dm.enter_demo(gs, app)
 
         # ── PLAYING ──────────────────────────────────────────────────────────
         elif app.state == PLAYING:
@@ -283,6 +288,13 @@ def handle_input(gs: GameState, app: AppState, dt: int) -> None:
             elif event.key == pygame.K_DOWN:
                 app.music_test_tier = min(10, app.music_test_tier + 1)
                 music_game.start_level(app.music_test_tier)
+
+        # ── DEMO ──────────────────────────────────────────────────────────────
+        elif app.state == DEMO:
+            if event.key in (pygame.K_SPACE, pygame.K_ESCAPE):
+                music_game.stop()
+                music.start_menu()
+                app.state = MENU
 
         # ── SETTINGS ──────────────────────────────────────────────────────────
         elif app.state == SETTINGS:

@@ -8,7 +8,7 @@ import config
 from constants import (
     COLS, ROWS, CELL_SIZE,
     BOARD_WIDTH, BOARD_HEIGHT, SIDEBAR_WIDTH, SCREEN_WIDTH, SCREEN_HEIGHT,
-    BG_COLOR, BORDER_COLOR, WHITE, YELLOW, COLORS, SHAPES,
+    BG_COLOR, BORDER_COLOR, WHITE, YELLOW, COLORS, SHAPES, LEVEL_THEMES,
 )
 from board import Board
 from piece import Piece
@@ -16,15 +16,10 @@ from sprites import get_block, get_ghost
 from game_constants import (
     FLASH_COLOR_NORM, FLASH_COLOR_QUAD,
     WOW_POPUP_DURATION, POPUP_DURATION,
-    SPEED_RESET_INTERVAL,
     POPUP_STYLES,
 )
 
 # ── rendering-only constants ──────────────────────────────────────────────────
-
-# Board background colors (Tron dark grid)
-_BOARD_LINE = (0, 38, 65)    # dark-cyan shown in the 1 px gaps between cells
-_BOARD_CELL = (5, 5, 18)     # near-black cell fill
 
 # Pixel-font glyphs for the PAUSE overlay (5×5 grids)
 _PAUSE_GLYPHS = {
@@ -105,6 +100,11 @@ def draw_board(surf: pygame.Surface, board: Board,
                flash_quad: bool = False,
                wow_on: bool = False,
                palette_phase: int = 0) -> None:
+    theme      = LEVEL_THEMES[palette_phase % len(LEVEL_THEMES)]
+    board_cell = theme[0]
+    grid_line  = theme[1]
+    surf.fill(grid_line)   # 1-px grid gaps come from this fill + CELL_SIZE-1 cells
+
     if wow_on and flash_on:
         h = (pygame.time.get_ticks() / 90) % 1.0   # ~11 Hz hue cycle
         r, g, b = colorsys.hsv_to_rgb(h, 1.0, 1.0)
@@ -124,7 +124,7 @@ def draw_board(surf: pygame.Surface, board: Board,
             elif val:
                 surf.blit(get_block(val, palette_phase=palette_phase), (px, py))
             else:
-                pygame.draw.rect(surf, _BOARD_CELL,
+                pygame.draw.rect(surf, board_cell,
                                  (px, py, CELL_SIZE - 1, CELL_SIZE - 1))
 
 
@@ -165,6 +165,119 @@ def draw_ghost(surf: pygame.Surface, board: Board, piece: Piece,
                                     palette_phase=palette_phase),
                           ((piece.x + col_i) * CELL_SIZE,
                            (gy + row_i) * CELL_SIZE))
+
+
+# ── odometer score display ────────────────────────────────────────────────────
+
+def draw_odometer(surf: pygame.Surface, digits: list, anim_from: list,
+                  anim_offs: list, x: int, y: int, faded: bool = False) -> None:
+    """Draw an 8-digit pinball-style odometer at (x, y).
+
+    Each digit lives in a small dark box and scrolls upward when the value
+    changes.  anim_offs[i] is 1.0 the frame a digit changes and decays to
+    0.0 over ~200 ms — the caller controls the decay rate.
+    """
+    dw, dh, gap = 16, 22, 1
+    base_col = (255, 220, 50) if not faded else (100, 78, 18)
+    dim_col  = (16, 16, 36)
+    bdr_col  = (52, 52, 88) if not faded else (28, 28, 50)
+    font     = _font(16)
+
+    for i in range(8):
+        dx       = x + i * (dw + gap)
+        box_surf = pygame.Surface((dw, dh))
+        box_surf.fill(dim_col)
+        pygame.draw.rect(box_surf, bdr_col, (0, 0, dw, dh), 1)
+
+        off   = anim_offs[i] if anim_offs else 0.0
+        new_d = str(digits[i])
+
+        if off > 0.0:
+            scroll = int(off * dh)
+            old_t  = font.render(str(anim_from[i]), True, base_col)
+            new_t  = font.render(new_d,             True, base_col)
+            cy_old = dh // 2 - old_t.get_height() // 2 - scroll
+            cy_new = dh // 2 - new_t.get_height() // 2 + dh - scroll
+            box_surf.blit(old_t, (dw // 2 - old_t.get_width() // 2, cy_old))
+            box_surf.blit(new_t, (dw // 2 - new_t.get_width() // 2, cy_new))
+        else:
+            t = font.render(new_d, True, base_col)
+            box_surf.blit(t, (dw // 2 - t.get_width() // 2,
+                               dh // 2 - t.get_height() // 2))
+
+        surf.blit(box_surf, (dx, y))
+
+
+# ── level-up board overlay ────────────────────────────────────────────────────
+
+def draw_level_up_overlay(surf: pygame.Surface, level_num: int,
+                          timer: int, max_timer: int,
+                          level_theme_idx: int) -> None:
+    """Draw a centred 'LEVEL N' banner on the board surface."""
+    if timer <= 0:
+        return
+
+    progress = timer / max_timer  # 1.0 = just appeared, 0.0 = about to vanish
+
+    if progress > 0.85:                              # fade in
+        alpha = 1.0 - (progress - 0.85) / 0.15
+    elif progress > 0.18:                            # hold
+        alpha = 1.0
+    else:                                            # fade out
+        alpha = progress / 0.18
+    alpha = max(0.0, min(1.0, alpha))
+
+    scale = (0.5 + 0.5 * (1.0 - (progress - 0.85) / 0.15)
+             if progress > 0.85 else 1.0)
+
+    theme  = LEVEL_THEMES[level_theme_idx % len(LEVEL_THEMES)]
+    gc     = theme[1]   # grid-line colour — more saturated than board_cell
+    bright = tuple(min(255, int(c * 3.8 + 50)) for c in gc)
+
+    label   = f"LEVEL  {level_num}"
+    fsize   = max(10, int(38 * scale))
+    f       = _font(fsize)
+    tw, th  = f.size(label)
+    cx      = BOARD_WIDTH // 2
+    cy      = BOARD_HEIGHT // 2 - 28
+    pad_x, pad_y = 18, 10
+    bw, bh  = tw + pad_x * 2, th + pad_y * 2
+
+    bg = pygame.Surface((bw, bh), pygame.SRCALPHA)
+    bg.fill((0, 0, 0, int(210 * alpha)))
+    surf.blit(bg, (cx - bw // 2, cy - bh // 2))
+
+    pulse = 0.6 + 0.4 * math.sin(pygame.time.get_ticks() * 0.014)
+    bdr_a = int(255 * alpha * pulse)
+    bdr   = pygame.Surface((bw + 6, bh + 6), pygame.SRCALPHA)
+    pygame.draw.rect(bdr, (*bright, bdr_a), (0, 0, bw + 6, bh + 6), 3,
+                     border_radius=6)
+    surf.blit(bdr, (cx - bw // 2 - 3, cy - bh // 2 - 3))
+
+    sh_col = tuple(max(0, int(c * 0.3 * alpha)) for c in bright)
+    surf.blit(f.render(label, True, sh_col), (cx - tw // 2 + 2, cy - th // 2 + 2))
+
+    text_col = tuple(int(c * alpha) for c in bright)
+    surf.blit(f.render(label, True, text_col), (cx - tw // 2, cy - th // 2))
+
+
+# ── demo overlay ──────────────────────────────────────────────────────────────
+
+def draw_demo_overlay(surf: pygame.Surface, label: str) -> None:
+    """Top banner shown during demo mode."""
+    banner = pygame.Surface((BOARD_WIDTH, 38), pygame.SRCALPHA)
+    banner.fill((0, 0, 0, 185))
+    surf.blit(banner, (0, 3))
+
+    t1 = _font(13).render("DEMO", True, (255, 70, 70))
+    surf.blit(t1, (8, 11))
+
+    if label:
+        t2 = _font(12, bold=False).render(label, True, (220, 220, 220))
+        surf.blit(t2, (BOARD_WIDTH // 2 - t2.get_width() // 2, 14))
+
+    t3 = _font(10, bold=False).render("SPACE / ESC  to exit", True, (130, 130, 130))
+    surf.blit(t3, (BOARD_WIDTH - t3.get_width() - 6, 21))
 
 
 # ── popup ─────────────────────────────────────────────────────────────────────
@@ -218,52 +331,64 @@ def draw_popup(surf: pygame.Surface, count: int, timer: int) -> None:
 def draw_sidebar(surf: pygame.Surface, score: int, lines: int,
                  level: int, piece_queue: list, best: int,
                  hold_piece=None, hold_used: bool = False,
-                 speed_tier: int = 1, next_speed_reset: int = SPEED_RESET_INTERVAL,
-                 reset_bonus_mult: float = 1.0, full_cascade_mode: bool = False,
+                 speed_tier: int = 1, lines_to_next_level: int = 10,
                  palette_phase: int = 0,
                  popup_count: int = 0, popup_timer: int = 0,
                  next_flash_timer: int = 0, hold_has_piece: bool = False,
-                 combo: int = 0, level_up_flash_timer: int = 0) -> None:
+                 combo: int = 0, level_up_flash_timer: int = 0,
+                 score_digits: list | None = None,
+                 score_anim_from: list | None = None,
+                 score_anim_offs: list | None = None) -> None:
     sx = BOARD_WIDTH + 12
 
     def lbl(text, y): surf.blit(_font(13).render(text, True, BORDER_COLOR), (sx, y))
-    def val(text, y): surf.blit(_font(19).render(text, True, YELLOW),       (sx, y))
 
-    lbl("SCORE", 14); val(str(score).zfill(7), 30)
-    lbl("BEST",  60); val(str(best).zfill(7),  76)
+    # ── score odometer ──────────────────────────────────────────────────────
+    lbl("SCORE", 13)
+    if score_digits is not None:
+        draw_odometer(surf, score_digits,
+                      score_anim_from or [0] * 8,
+                      score_anim_offs or [0.0] * 8,
+                      sx, 28)
+    else:
+        surf.blit(_font(19).render(str(score).zfill(7), True, YELLOW), (sx, 28))
 
-    surf.blit(_font(12).render("LVL",   True, BORDER_COLOR), (sx,      108))
-    surf.blit(_font(12).render("LINES", True, BORDER_COLOR), (sx + 65, 108))
+    # ── best odometer (static, faded) ───────────────────────────────────────
+    lbl("BEST", 55)
+    best_digits = [int(d) for d in str(min(best, 99999999)).zfill(8)]
+    draw_odometer(surf, best_digits, [0] * 8, [0.0] * 8, sx, 70, faded=True)
+
+    # ── level + lines ───────────────────────────────────────────────────────
+    surf.blit(_font(12).render("LVL",   True, BORDER_COLOR), (sx,      98))
+    surf.blit(_font(12).render("LINES", True, BORDER_COLOR), (sx + 65, 98))
     level_col = WHITE if level_up_flash_timer > 0 else YELLOW
-    surf.blit(_font(17).render(str(level), True, level_col), (sx,      122))
-    surf.blit(_font(17).render(str(lines), True, YELLOW),    (sx + 65, 122))
+    surf.blit(_font(17).render(str(level), True, level_col), (sx,      112))
+    surf.blit(_font(17).render(str(lines), True, YELLOW),    (sx + 65, 112))
 
+    # ── combo ───────────────────────────────────────────────────────────────
     combo_col = (80, 220, 255) if combo >= 2 else tuple(max(c - 110, 0) for c in BORDER_COLOR)
     combo_str = f"COMBO  ×{combo}" if combo >= 2 else "COMBO"
-    surf.blit(_font(11).render(combo_str, True, combo_col), (sx, 142))
+    surf.blit(_font(11).render(combo_str, True, combo_col), (sx, 132))
 
-    surf.blit(_font(12).render("SPEED", True, BORDER_COLOR), (sx, 168))
-    surf.blit(_font(17).render(f"T{speed_tier}", True, YELLOW), (sx, 182))
-    if reset_bonus_mult > 1.005:
-        surf.blit(_font(12).render(f"×{reset_bonus_mult:.1f}", True, (255, 200, 50)),
-                  (sx + 48, 185))
+    # ── speed tier ──────────────────────────────────────────────────────────
+    surf.blit(_font(12).render("SPEED", True, BORDER_COLOR), (sx, 155))
+    surf.blit(_font(17).render(f"T{speed_tier}", True, YELLOW), (sx, 169))
 
-    surf.blit(_font(12).render("FULL CASCADE IN", True, BORDER_COLOR), (sx, 207))
-    pts_left = max(0, next_speed_reset - score)
-    if pts_left > 2000:
-        rst_col = (100, 255, 100)
-    elif pts_left > 500:
-        rst_col = (255, 200, 50)
-    else:
-        rst_col = (255, 80, 80)
-    surf.blit(_font(14).render(f"{pts_left:,} pts", True, rst_col), (sx, 220))
+    # ── next level countdown ─────────────────────────────────────────────────
+    surf.blit(_font(12).render("NEXT  LEVEL  IN", True, BORDER_COLOR), (sx, 193))
+    nl = lines_to_next_level
+    nl_col = ((100, 255, 100) if nl > 5 else
+              (255, 200, 50)  if nl > 2 else
+              (255, 80,  80))
+    surf.blit(_font(14).render(f"{nl} line{'s' if nl != 1 else ''}", True, nl_col),
+              (sx, 207))
 
     box_w  = SIDEBAR_WIDTH - 16
     box_x  = sx - 4
     mini   = CELL_SIZE - 8
     tiny   = 10
 
-    NEXT_Y     = 242
+    NEXT_Y     = 228
     NEXT_BOX_Y = NEXT_Y + 20
     P1_H       = 72
     MINI_H     = 78
@@ -598,7 +723,7 @@ def draw_menu(surf: pygame.Surface, blink_on: bool) -> None:
                                "Z rotate CCW     v  soft drop",
                                "SPACE hard drop",
                                "S  settings      M  mute",
-                               "T  music preview"]):
+                               "T  music preview  D  demo"]):
         t = _font(12, bold=False).render(line, True, BORDER_COLOR)
         surf.blit(t, (cx - t.get_width() // 2, 358 + i * 18))
 

@@ -28,22 +28,22 @@ from constants import (
     FPS, BG_COLOR, BORDER_COLOR, fall_speed,
 )
 from renderer import (
-    _font, _BOARD_LINE,
+    _font,
     draw_board, _draw_danger_line, draw_piece, draw_ghost,
     draw_sidebar, draw_game_over_overlay,
+    draw_level_up_overlay, draw_demo_overlay,
     draw_settings, draw_pause, draw_music_test,
     draw_menu, draw_name_entry, draw_leaderboard,
 )
 from game_constants import (
-    LOCK_DELAY,
-    GRAVITY_20G_LEVEL,
-    PALETTE_PHASE_INTERVAL,
+    LOCK_DELAY, GRAVITY_20G_LEVEL,
     SHAKE_DURATION, SHAKE_INTENSITY, HD_FLASH_DURATION,
 )
 from game_state import GameState
 from app_state import AppState
 from game_logic import spawn_next, end_game, do_lock, tick_clearing, tick_cascading
 from input_handler import handle_input, MUSIC_END
+import demo as demo_mod
 
 # ── states ────────────────────────────────────────────────────────────────────
 MENU        = "menu"
@@ -57,6 +57,7 @@ GAME_OVER_ANIM = "game_over_anim"
 PAUSED         = "paused"
 MUSIC_TEST     = "music_test"
 CASCADING      = "cascading"
+DEMO           = "demo"
 
 
 def _make_display(scale: float) -> pygame.Surface:
@@ -175,12 +176,35 @@ def main():
         # ── popup / particle / fx timers ─────────────────────────────────────
         if gs.popup_timer > 0:
             gs.popup_timer = max(0, gs.popup_timer - dt)
-        gs.particles             = update_particles(gs.particles, dt)
-        gs.hd_flash_timer        = max(0, gs.hd_flash_timer        - dt)
-        gs.shake_timer           = max(0, gs.shake_timer            - dt)
-        gs.speed_reset_flash_timer = max(0, gs.speed_reset_flash_timer - dt)
-        gs.next_flash_timer      = max(0, gs.next_flash_timer       - dt)
-        gs.level_up_flash_timer  = max(0, gs.level_up_flash_timer   - dt)
+        gs.particles            = update_particles(gs.particles, dt)
+        gs.hd_flash_timer       = max(0, gs.hd_flash_timer       - dt)
+        gs.shake_timer          = max(0, gs.shake_timer           - dt)
+        gs.next_flash_timer     = max(0, gs.next_flash_timer      - dt)
+        gs.level_up_flash_timer = max(0, gs.level_up_flash_timer  - dt)
+        gs.level_popup_timer    = max(0, gs.level_popup_timer      - dt)
+
+        # ── odometer update ──────────────────────────────────────────────────
+        if app.state in (PLAYING, CLEARING, CASCADING, DEMO):
+            delta = gs.score - app.score_disp
+            if delta > 0:
+                chase = max(delta * 0.08, 150.0) * (dt / 1000.0) * 60
+                app.score_disp = min(float(gs.score), app.score_disp + chase)
+            new_digits = [int(d) for d in str(int(app.score_disp)).zfill(8)]
+            for i in range(8):
+                if new_digits[i] != app.score_disp_digits[i]:
+                    if app.score_anim_offs[i] == 0.0:
+                        app.score_anim_from[i] = app.score_disp_digits[i]
+                    app.score_anim_offs[i] = 1.0
+            app.score_disp_digits = new_digits
+            for i in range(8):
+                if app.score_anim_offs[i] > 0:
+                    app.score_anim_offs[i] = max(0.0, app.score_anim_offs[i] - dt / 180.0)
+
+        # ── menu idle timer → auto-demo ──────────────────────────────────────
+        if app.state == MENU:
+            app.menu_idle_timer += dt
+            if app.menu_idle_timer >= 60_000:
+                demo_mod.enter_demo(gs, app)
 
         s = dt / 1000.0
         for db in gs.danger_bonuses:
@@ -198,32 +222,36 @@ def main():
             sd['timer'] -= dt
         gs.score_deltas = [sd for sd in gs.score_deltas if sd['timer'] > 0]
 
+        # ── demo bot update ──────────────────────────────────────────────────
+        if app.state == DEMO:
+            demo_mod.update_demo(gs, app, dt)
+
         # ── draw ──────────────────────────────────────────────────────────────
         if app.state == MENU:
             draw_menu(app.screen, app.blink_on)
 
-        elif app.state in (PLAYING, CLEARING, CASCADING, GAME_OVER, GAME_OVER_ANIM, PAUSED):
+        elif app.state in (PLAYING, CLEARING, CASCADING, GAME_OVER, GAME_OVER_ANIM,
+                           PAUSED, DEMO):
             app.screen.fill(BG_COLOR)
 
-            palette_phase = ((gs.level - 1) // PALETTE_PHASE_INTERVAL) % 6
+            level_theme = (gs.level - 1) % 10   # 0-9 cycling per level
 
             bsurf = pygame.Surface((BOARD_WIDTH, BOARD_HEIGHT))
-            bsurf.fill(_BOARD_LINE)
 
             fr = gs.clear_rows if app.state == CLEARING else None
             fo = (gs.clear_flash_idx % 2 == 0) if app.state == CLEARING else False
             fq = (gs.clear_count == 4) if app.state == CLEARING else False
             fw = gs.wow_active if app.state == CLEARING else False
             draw_board(bsurf, gs.board, flash_rows=fr, flash_on=fo, flash_quad=fq,
-                       wow_on=fw, palette_phase=palette_phase)
+                       wow_on=fw, palette_phase=level_theme)
 
-            if gs.danger and app.state in (PLAYING, CLEARING, CASCADING, PAUSED):
+            if gs.danger and app.state in (PLAYING, CLEARING, CASCADING, PAUSED, DEMO):
                 _draw_danger_line(bsurf)
 
-            if app.state in (PLAYING, PAUSED):
+            if app.state in (PLAYING, PAUSED, DEMO):
                 draw_ghost(bsurf, gs.board, gs.current, app.ghost_opacity_pct,
-                           palette_phase=palette_phase)
-                draw_piece(bsurf, gs.current, palette_phase=palette_phase)
+                           palette_phase=level_theme)
+                draw_piece(bsurf, gs.current, palette_phase=level_theme)
 
             draw_particles(bsurf, gs.particles)
 
@@ -245,12 +273,6 @@ def main():
                 sdt.set_alpha(a)
                 bsurf.blit(sdt, (int(sd['x']) - sdt.get_width() // 2, int(sd['y'])))
 
-            if gs.speed_reset_flash_timer > 0:
-                a      = 1.0 if gs.speed_reset_flash_timer > 500 else gs.speed_reset_flash_timer / 500
-                sr_col = tuple(int(c * a) for c in (100, 255, 100))
-                sr_t   = _font(22).render("SPEED  RESET!", True, sr_col)
-                bsurf.blit(sr_t, (BOARD_WIDTH // 2 - sr_t.get_width() // 2, 38))
-
             if gs.hd_flash_timer > 0:
                 alpha = int(190 * gs.hd_flash_timer / HD_FLASH_DURATION)
                 fl    = pygame.Surface((BOARD_WIDTH, BOARD_HEIGHT), pygame.SRCALPHA)
@@ -270,12 +292,22 @@ def main():
                 bsurf.blit(bg, (cx - pad, cy - pad))
                 bsurf.blit(cas_t, (cx, cy))
 
-            elif app.state == GAME_OVER:
+            if app.state == GAME_OVER:
                 draw_game_over_overlay(bsurf, gs.score,
                                        gs.stat_pieces, gs.stat_tetrises, gs.stat_tspins,
                                        gs.stat_combo, gs.stat_time)
             elif app.state == GAME_OVER_ANIM:
                 app.go_anim.draw(bsurf)
+
+            # ── level-up overlay (independent of CASCADING label above) ──────
+            if gs.level_popup_timer > 0:
+                draw_level_up_overlay(bsurf, gs.level_popup_num,
+                                      gs.level_popup_timer, gs.level_popup_max,
+                                      level_theme)
+
+            # ── demo overlay ──────────────────────────────────────────────────
+            if app.state == DEMO:
+                draw_demo_overlay(bsurf, app.demo_label)
 
             ox = oy = 0
             if gs.shake_timer > 0:
@@ -285,14 +317,29 @@ def main():
 
             app.screen.blit(bsurf, (ox, oy))
 
+            # ── level-up border flash on the main screen ───────────────────
+            if gs.level_popup_timer > 0 and gs.level_popup_max > 0:
+                lp_prog  = gs.level_popup_timer / gs.level_popup_max
+                lp_alpha = min(1.0, 2.0 * (1.0 - abs(lp_prog - 0.5) / 0.5))
+                from constants import LEVEL_THEMES
+                gc       = LEVEL_THEMES[level_theme][1]
+                bc       = tuple(min(255, int(c * 4)) for c in gc)
+                ba       = int(200 * lp_alpha)
+                bf       = pygame.Surface((BOARD_WIDTH + 4, BOARD_HEIGHT + 4),
+                                          pygame.SRCALPHA)
+                pygame.draw.rect(bf, (*bc, ba), (0, 0, BOARD_WIDTH + 4, BOARD_HEIGHT + 4),
+                                 4)
+                app.screen.blit(bf, (-2, -2))
+
+            lines_to_next = gs.level * 10 - gs.lines
             draw_sidebar(app.screen, gs.score, gs.lines, gs.level, gs.piece_queue,
                          app.best, gs.hold_piece, gs.hold_used,
-                         gs.speed_tier, gs.next_speed_reset,
-                         gs.reset_bonus_mult, gs.full_cascade_mode,
-                         palette_phase,
+                         gs.speed_tier, lines_to_next,
+                         level_theme,
                          gs.popup_count, gs.popup_timer,
                          gs.next_flash_timer, gs.hold_piece is not None,
-                         gs.combo, gs.level_up_flash_timer)
+                         gs.combo, gs.level_up_flash_timer,
+                         app.score_disp_digits, app.score_anim_from, app.score_anim_offs)
             pygame.draw.rect(app.screen, BORDER_COLOR,
                              (0, 0, BOARD_WIDTH, BOARD_HEIGHT), 1)
             pygame.draw.line(app.screen, BORDER_COLOR,

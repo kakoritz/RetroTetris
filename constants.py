@@ -61,3 +61,21 @@ def fall_speed(level: int) -> int:
 
 # NES scoring: multiplier * (level + 1)
 SCORE_TABLE = {1: 40, 2: 100, 3: 300, 4: 1200}
+
+# 10 level colour themes — one per level, cycling every 10 levels.
+# Each entry: (board_cell, grid_line, tile_factor)
+#   board_cell  — very-dark background fill for empty cells
+#   grid_line   — 1-px separator visible between cells
+#   tile_factor — brightness multiplier applied to all tile colours (≤1.0)
+LEVEL_THEMES = [
+    ((  5,   5,  18), (  0,  38,  65), 1.00),  #  1  Midnight Blue  (default)
+    (( 12,   5,  20), ( 48,   0,  72), 0.92),  #  2  Deep Violet
+    ((  5,  16,   5), (  0,  52,  20), 0.95),  #  3  Forest Deep
+    ((  5,  14,  16), (  0,  44,  56), 0.93),  #  4  Abyssal Teal
+    (( 20,   4,   4), ( 68,  10,  10), 0.90),  #  5  Crimson Void
+    (( 20,  10,   2), ( 68,  32,   0), 0.94),  #  6  Ember
+    (( 16,   4,  16), ( 58,   0,  58), 0.88),  #  7  Neon Magenta
+    ((  4,  18,  10), (  8,  60,  30), 0.96),  #  8  Deep Emerald
+    ((  5,   8,  22), ( 14,  22,  72), 0.97),  #  9  Cosmic Deep
+    (( 20,  14,   2), ( 68,  46,   8), 0.91),  # 10  Solar Dusk
+]

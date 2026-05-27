@@ -44,18 +44,16 @@ Version number format: `v1.MAJOR.MINOR` — bump MINOR for any visible change, M
 - **Language:** Python 3.10+, Pygame 2.5+, NumPy
 - **No external assets** — every pixel, sound, and note is generated at runtime
 - **Logical resolution:** 460×600 (SCREEN_WIDTH × SCREEN_HEIGHT); scaled to window via `current_scale`
-- **State machine states:** MENU, PLAYING, CLEARING, CASCADING, GAME_OVER_ANIM, GAME_OVER, ENTER_NAME, LEADERBOARD, SETTINGS, PAUSED, MUSIC_TEST
+- **State machine states:** MENU, PLAYING, CLEARING, CASCADING, GAME_OVER_ANIM, GAME_OVER, ENTER_NAME, LEADERBOARD, SETTINGS, PAUSED, MUSIC_TEST, DEMO
 - **FPS:** 60, enforced via `clock.tick(FPS)`
 - **Board:** 10 cols × 20 rows, `board.grid[row][col]` stores color_id (0 = empty)
 
 ## Key Variable Relationships
 
-- `level` drives: scoring multiplier `(level + 1)`, palette phase, 20G gate
-- `speed_tier` drives: fall speed (`fall_speed(speed_tier)`); resets when score crosses `next_speed_reset`
-- `next_speed_reset`: starts at `SPEED_RESET_INTERVAL` (10k); each reset adds `SPEED_RESET_INTERVAL + speed_reset_count * CASCADE_INTERVAL_GROWTH (5k)` to the threshold
-- `reset_bonus_mult`: starts 1.0, +0.1 per speed reset; applied to line-clear scores
-- `full_cascade_mode`: toggles on/off each speed reset; True = animated CASCADING state after clears
-- `palette_phase`: `((level - 1) // PALETTE_PHASE_INTERVAL) % 6`
+- `level` drives: scoring multiplier `(level + 1)`, level theme, 20G gate; `level = lines_cleared // 10 + 1`
+- `speed_tier` drives: fall speed (`fall_speed(speed_tier)`); increments by 1 per level-up, capped at 20
+- `level_cascade_pending`: set True on level-up; consumed in `tick_clearing` to force CASCADING state
+- `level_theme`: `(level - 1) % 10` — index into `LEVEL_THEMES` in constants.py; passed as `palette_phase` parameter throughout renderer/sprites call sites
 
 ## Popup Style Map
 
@@ -70,7 +68,7 @@ Priority: WOW > T×T > B2B T-SPIN > T-SPIN > T-SPIN MINI > B2B TETRIS > INSANE >
 ## Files
 
 ```
-main.py           bootstrap + game loop frame body (~590 lines)
+main.py           bootstrap + game loop frame body
 game_state.py     GameState — per-session mutable state, reset() on new game
 app_state.py      AppState — shell state across sessions; state-machine constants
 game_logic.py     spawn_next, do_hold, start_new_game, end_game, do_lock, etc.
@@ -80,16 +78,17 @@ rotation.py       SRS wall-kick engine, T-spin detection
 game_constants.py gameplay-tuning constants — no Pygame dependency
 board.py          grid, collision, line-clear, cascade gravity
 piece.py          tetromino shapes, CW/CCW rotation, 7-bag randomiser
-constants.py      geometry, NES palette, scoring tables, fall-speed curve
-sprites.py        cached block/ghost surfaces; palette_phase keyed
+constants.py      geometry, NES palette, scoring tables, fall-speed curve, LEVEL_THEMES
+sprites.py        cached block/ghost surfaces; palette_phase (level_theme 0–9) keyed
 audio.py          PCM SFX synthesis
 music_game.py     10-tier adaptive chiptune engine
 music.py          menu music (standalone 32-bar composition)
+demo.py           attract/demo mode — 7 scripted scenarios, placement bot FSM
 particles.py      particle burst system (intensity 1–4)
 game_over_anim.py per-block physics for GAME OVER sequence
 highscore.py      JSON top-10 persistence
 config.py         settings persistence (config.json)
-tests/            pytest unit tests (42 tests, board + scoring)
+tests/            pytest unit tests (70 tests, board + scoring + game_logic)
 ```
 
 ## Code Style

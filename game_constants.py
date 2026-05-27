@@ -36,22 +36,11 @@ GRAVITY_20G_LEVEL = 20
 # ── placement score ───────────────────────────────────────────────────────────
 PLACEMENT_SCORE = 10
 
-# ── speed reset ───────────────────────────────────────────────────────────────
-SPEED_RESET_INTERVAL   = 10000  # every N points, fall speed resets to tier 1
-CASCADE_INTERVAL_GROWTH = 5000  # each reset raises the threshold by this much more
-
-# ── palette shift ─────────────────────────────────────────────────────────────
-PALETTE_PHASE_INTERVAL = 10   # levels per palette darkening step (6 phases, wraps)
-
 # ── page-up/down in-game volume ───────────────────────────────────────────────
 PAGE_VOL_STEP = 5   # % per keypress
 
-# ── speed-reset flash overlay ─────────────────────────────────────────────────
-SPEED_RESET_FLASH_DURATION = 2500   # ms
-
-# ── full board cascade animation ──────────────────────────────────────────────
-CASCADE_STEP_MS         = 80    # ms between each one-row gravity wave (legacy ref)
-CASCADE_BONUS_PER_RESET = 5000  # flat score bonus per reset count when cascade completes
+# ── level-up overlay ──────────────────────────────────────────────────────────
+LEVEL_POPUP_DURATION = 2800   # ms — "LEVEL N" overlay on the board
 
 # ── next-piece box flash ─────────────────────────────────────────────────────
 NEXT_FLASH_MS = 220   # ms — brief white outline on NEXT box when piece changes

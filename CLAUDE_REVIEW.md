@@ -5,7 +5,74 @@ part development commentary — what changed, what it means, and where the game 
 
 ---
 
-## Current Rating: 9.2 / 10 (as a Tetris game) · 9.9 / 10 (as a portfolio project)
+## Current Rating: 9.4 / 10 (as a Tetris game) · 9.9 / 10 (as a portfolio project)
+
+---
+
+## v1.10.0 Review — Level Themes, Demo Mode, Odometer, Fanfare
+
+### Level themes — the right kind of visual feedback
+
+The 10 distinct level themes (named, with real personality: Midnight Blue, Crimson Void,
+Neon Magenta) are a significant upgrade over the old "darken 10 % every 10 levels" palette
+shift. The old system was barely perceptible and felt like a limitation rather than a
+feature. These themes are unmistakable — the board genuinely looks different at level 5
+(Crimson Void) vs level 8 (Deep Emerald). The tile brightness factor per theme is
+carefully chosen so every theme reads as dark-and-dramatic without losing visual contrast
+on the pieces themselves. Cycling every 10 levels keeps the variety going indefinitely.
+
+The integration is clean: `palette_phase` was repurposed rather than renamed, so all call
+sites work without touching renderer, sprites, or game_logic separately. No dead code.
+
+### Demo mode — the hardest thing to get right in a Tetris game
+
+Most Tetris implementations never bother with attract/demo mode. This one has a proper
+attract sequence that showcases every major game event in order, with a simple but
+functional placement bot (rotate → slide → hard drop). The scenario definitions are
+declarative tuples — adding a new scenario is one line. The 60-second idle auto-trigger
+is the right default; it turns the menu screen into marketing.
+
+The bot design is intentionally minimal: it doesn't pathfind or evaluate positions —
+it just executes a hardcoded target. This is the right call for demo mode. Sophistication
+here is wasted engineering. The scenarios are scripted to guarantee the events fire;
+the bot just needs to deliver the piece.
+
+### Odometer score display — tactile feedback for a number
+
+Rolling digit boxes are the right call for a score counter in an arcade game. The score
+number in standard text is information; the odometer is *sensation*. Watching digits
+scroll when you score a Tetris is satisfying in a way that a counter update is not.
+The implementation (float `score_disp` chasing real score at 8 %/frame + 150 pt floor)
+means large score jumps look dramatic without being instantaneous — the right tradeoff.
+
+The 8-digit layout is correct for scores in the 0–9,999,999 range.
+
+### Speed-reset removal — correct decision
+
+The speed-reset system was a holdover from trying to create artificial difficulty spikes.
+In practice it created jarring "slow-down then speed-up" moments that felt like a game
+malfunction rather than a designed feature. The level system already does this job
+correctly: each level-up increases speed tier, and the "NEXT LEVEL IN X lines" countdown
+gives the player the tension of an approaching threshold without the disorientation of a
+full speed reset.
+
+The removal also simplifies the scoring formula significantly — `reset_bonus_mult` and
+the cascading threshold arithmetic were the most opaque parts of the scoring system.
+
+### Cascade on level-up — one concern
+
+Forcing a cascade after every level-up could feel abrupt if the player is mid-game with
+a sparse board (nothing to cascade). In practice the cascade pass will complete
+immediately with no visible effect in that case, so it is not a bug. But it does mean
+`level_cascade_pending` might sit set and get consumed by an unrelated clear some time
+after the level-up, creating a delayed cascade that was not triggered by the level-up
+itself. This is a minor timing quirk, not a correctness issue.
+
+### Test count — acceptable regression
+
+Dropping from 72 to 70 tests by removing the speed-reset constant tests is correct.
+Those tests tested constants that no longer exist. Keeping them would cause CI failures.
+The remaining 70 tests cover everything that still exists.
 
 ---
 

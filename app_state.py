@@ -24,6 +24,7 @@ GAME_OVER_ANIM = "game_over_anim"
 PAUSED         = "paused"
 MUSIC_TEST     = "music_test"
 CASCADING      = "cascading"
+DEMO           = "demo"
 
 
 class AppState:
@@ -84,6 +85,22 @@ class AppState:
         self.lb_hi_name:  str | None  = None
         self.lb_hi_score: int | None  = None
         self.best:        int         = 0
+
+        # ── odometer score display ────────────────────────────────────────────
+        self.score_disp:        float = 0.0   # displayed value chasing gs.score
+        self.score_disp_digits: list  = [0] * 8
+        self.score_anim_from:   list  = [0] * 8   # digit value when animation began
+        self.score_anim_offs:   list  = [0.0] * 8  # 1.0=just changed → 0.0=settled
+
+        # ── demo mode ─────────────────────────────────────────────────────────
+        self.demo_scenario_idx: int  = 0
+        self.demo_phase:        str  = 'setup'   # 'setup' | 'move' | 'wait'
+        self.demo_bot_timer:    int  = 0          # throttle: move every N ms
+        self.demo_wait_timer:   int  = 0
+        self.demo_target_col:   int  = 0
+        self.demo_target_rot:   int  = 0
+        self.demo_label:        str  = ''
+        self.menu_idle_timer:   int  = 0          # ms since last key at menu
 
         # ── debug cheat sequences ─────────────────────────────────────────────
         self._cheat_seq: list = []   # 3-2-1 WOW trigger

@@ -25,12 +25,15 @@ _muted            = False
 # ── sequence definition ───────────────────────────────────────────────────────
 # Each entry: (tier, plays).  plays=2 means play twice before advancing.
 _GAME_SEQUENCE = [
-    (4, 2),
-    (5, 2),
-    (7, 1),
+    (1, 3),   # sparse bass pulse — feels bare, so denser tiers are satisfying
+    (2, 2),   # walking bass adds movement
+    (3, 2),   # groove bass fills it out
+    (4, 2),   # chord movement kicks in
+    (5, 2),   # arpeggio layer arrives
+    (7, 1),   # full melody — big payoff moment
     (8, 1),
     (9, 1),
-    (6, 2),
+    (6, 2),   # chord arp interlude
 ]
 
 _seq_index = 0    # current position in _GAME_SEQUENCE

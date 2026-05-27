@@ -107,27 +107,6 @@ def test_soft_drop_1_per_row():
     assert rows * 1 == 5
 
 
-# ── reset multiplier growth ───────────────────────────────────────────────────
-
-def test_reset_mult_grows_by_point_one():
-    import builtins
-    mult = 1.0
-    for i in range(1, 6):
-        mult = round(1.0 + i * 0.1, 1)
-        assert abs(mult - (1.0 + i * 0.1)) < 1e-9
-
-
-# ── cascade interval growth ───────────────────────────────────────────────────
-
-def test_cascade_interval_grows():
-    """Each reset raises the threshold by CASCADE_INTERVAL_GROWTH more."""
-    threshold = 0
-    for reset_count in range(5):
-        threshold += _m.SPEED_RESET_INTERVAL + reset_count * _m.CASCADE_INTERVAL_GROWTH
-    # 1st:10k, 2nd:15k, 3rd:20k, 4th:25k, 5th:30k → total 100k
-    assert threshold == 100_000
-
-
 # ── popup style completeness ──────────────────────────────────────────────────
 
 def test_all_popup_styles_have_text():

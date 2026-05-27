@@ -2,6 +2,50 @@
 
 ---
 
+## v1.10.0 — Level Themes, Demo Mode, Odometer Score, Level-Up Cascade
+*2026-05-27*
+
+### Added
+- **10 distinct level themes** — every level gets its own board background color, grid
+  line color, and tile brightness factor. Themes cycle every 10 levels (level 11 → theme 1
+  again). Names: Midnight Blue, Deep Violet, Forest Deep, Abyssal Teal, Crimson Void,
+  Ember, Neon Magenta, Deep Emerald, Cosmic Deep, Solar Dusk.
+- **Level-up visual overlay** — large "LEVEL N" text centered on the board, with a pulsing
+  themed border flash, on every level increment. Displayed for ~2.8 s.
+- **Level-up fanfare** — replaced the 3-beep arpeggio with a full ascending C major scale
+  fanfare (~700 ms): sweep → C5 → E5 → G5 → C6 → E6 → C7.
+- **Level-up triggers Full Cascade** — every level-up forces a cascade pass after the next
+  line clear, giving each level-up a kinetic payoff regardless of current board state.
+- **"NEXT LEVEL IN X lines" sidebar countdown** — shows how many more lines until the next
+  level increment. Replaces the removed speed-reset countdown.
+- **Odometer score display** — SCORE and BEST rendered as 8-digit pinball-style scrolling
+  boxes. Each digit scrolls upward when it changes (180 ms animation per digit). Score
+  display chases `gs.score` at 8 % per frame with a 150 pt/frame floor.
+- **Demo mode** — press `D` at the menu (or wait 60 s of idle) to enter a pre-scripted
+  attract sequence. Cycles through 7 scenarios: 1×, 2×, 3× line clear, Tetris, Color Clear,
+  WOW (Perfect Clear), Full Cascade. A bot places pieces automatically. "DEMO" overlay +
+  scenario label displayed on board. `Space` or `Esc` exits back to menu.
+- **Music sequence starts at tier 1** — game music now begins from sparse bass (tier 1),
+  so higher tiers feel earned as the sequence progresses.
+
+### Removed
+- **Score-based speed-reset system** — `SPEED_RESET_INTERVAL`, `CASCADE_INTERVAL_GROWTH`,
+  `reset_bonus_mult`, `next_speed_reset`, `speed_reset_count`, `speed_reset_flash_timer`,
+  and `full_cascade_mode` are all gone. Speed tier still increases with level, but there
+  are no threshold resets.
+
+### Changed
+- Level system: `level = lines_cleared // 10 + 1` — every 10 lines = 1 level up.
+- `palette_phase` parameter throughout the codebase now carries `(level - 1) % 10` (0–9
+  level theme index), not the old 6-phase darkening counter.
+- Cascade scoring simplified: bonus = `500 × (cascade_level + 1)`.
+
+### Tests
+- Removed `test_reset_mult_grows_by_point_one` and `test_cascade_interval_grows`
+  (both referenced deleted constants). **70 tests passing.**
+
+---
+
 ## v1.9.1 — Crash Handler, Debug Sequence, Expanded Tests, CI/CD
 *2026-05-27*
 

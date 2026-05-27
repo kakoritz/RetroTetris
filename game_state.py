@@ -2,7 +2,7 @@
 import pygame
 from board import Board
 from piece import Piece
-from game_constants import SPEED_RESET_INTERVAL
+from game_constants import LEVEL_POPUP_DURATION
 
 
 class GameState:
@@ -47,17 +47,18 @@ class GameState:
         self.combo       = 0           # consecutive clears; resets on a piece with no clear
         self.combo_labels: list = []
 
-        # ── speed reset system ────────────────────────────────────────────────
-        self.speed_tier          = 1
-        self.next_speed_reset    = SPEED_RESET_INTERVAL
-        self.speed_reset_count   = 0
-        self.reset_bonus_mult    = 1.0    # +0.1 per reset, applied to all clears
-        self.full_cascade_mode   = False  # toggles on/off each speed reset
-        self.cascade_level       = 0      # how many cascade passes have chained
-        self.first_clear_tetris  = False  # True if first clear this lock was a Tetris
+        # ── speed / cascade ───────────────────────────────────────────────────
+        self.speed_tier           = 1
+        self.level_cascade_pending = False  # True → level-up forces cascade this clear
+        self.cascade_level        = 0       # cascade pass count this lock
+        self.first_clear_tetris   = False   # True if first clear this lock was Tetris
+
+        # ── level-up overlay ─────────────────────────────────────────────────
+        self.level_popup_timer  = 0               # ms remaining for "LEVEL N" overlay
+        self.level_popup_num    = 0               # which level just reached
+        self.level_popup_max    = LEVEL_POPUP_DURATION
 
         # ── animation timers ─────────────────────────────────────────────────
-        self.speed_reset_flash_timer = 0
         self.next_flash_timer        = 0   # NEXT box white-flash on piece change
 
         # ── floating labels ───────────────────────────────────────────────────

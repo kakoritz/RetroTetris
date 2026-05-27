@@ -61,13 +61,24 @@ def _build() -> dict:
         'rotate':    _sound(_note(760, 48, _V, 14.0)),
         'move':      _sound(_note(760, 35, _V, 16.0)),
         'lock':      _sound(_note(180, 120, _V, 7.0)),
-        # Rising 3-note arpeggio — G5 → C6 → E6 — short, celebratory, not intrusive.
+        # Level-up fanfare: C4 sweep → C5 → E5 → G5 → C6 → held C7 chord.
+        # The opening pitch-sweep signals "something big happened" before the
+        # arpeggio resolves it upward.  Runs ~700 ms — long enough to feel
+        # celebratory, short enough not to mask the next piece spawn tone.
         'levelup':   _sound(
-            _note(784,  80, _V, 9.0),
-            _silence(10),
-            _note(1047, 80, _V, 7.0),
-            _silence(10),
-            _note(1319, 130, _V, 5.0),
+            _sweep(200, 523,  90, _V * 1.4, 0.2),   # low→C5 sweep
+            _silence(8),
+            _note(523,   70, _V, 10.0),              # C5
+            _silence(6),
+            _note(659,   70, _V,  9.0),              # E5
+            _silence(6),
+            _note(784,   70, _V,  8.0),              # G5
+            _silence(6),
+            _note(1047, 100, _V,  6.0),              # C6
+            _silence(6),
+            _note(1319, 100, _V,  5.0),              # E6
+            _silence(6),
+            _note(2093, 200, _V * 1.6, 2.5),         # C7 — triumphant hold
         ),
         'hard_drop': _sound(
             _sweep(900, 120, 260, _V, 0.4),

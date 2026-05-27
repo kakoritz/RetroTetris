@@ -42,13 +42,14 @@ preview screen is the design tool for refining it.
 
 ### 2.2 Playback sequence
 
-The in-game music follows a curated sequence rather than a straight ascending
-progression:
+The in-game music starts at tier 1 (sparse bass pulse only) so higher tiers feel earned
+rather than expected. The sequence is:
 
-> Tier 4 × 2 loops → Tier 5 × 2 → Tier 7 × 1 → Tier 8 × 1 → Tier 9 × 1 → Tier 6 × 2 → repeat
+> Tier 1 × 3 loops → Tier 2 × 2 → Tier 3 × 2 → Tier 4 × 2 → Tier 5 × 2 → Tier 7 × 1 → Tier 8 × 1 → Tier 9 × 1 → Tier 6 × 2 → repeat
 
-Tier 6 appearing after tier 9 is deliberate — a step back in intensity before the loop
-resets. The sequence reads as a composed arc, not a level counter.
+Starting sparse and building rewards continued play with a richer soundscape. Tier 6
+appearing after tier 9 is deliberate — a step back in intensity before the loop resets.
+The sequence reads as a composed arc, not a level counter.
 
 ### 2.3 Danger mode
 
@@ -124,7 +125,7 @@ entire play area lights up. A plain white overlay was explicitly not the target.
 
 ## 4. Scoring System
 
-All line-clear scores are multiplied by `(level + 1)` × `reset_bonus_mult` × danger multiplier.
+All line-clear scores are multiplied by `(level + 1)` × danger multiplier.
 
 | Event | Base points | In danger zone |
 |-------|------------|----------------|
@@ -148,20 +149,22 @@ All line-clear scores are multiplied by `(level + 1)` × `reset_bonus_mult` × d
 A Tetris immediately followed by a cascade Tetris triggers **TETRIS×TETRIS** at 4× with a
 board-centred rainbow popup.
 
-**Speed reset multiplier:** `reset_bonus_mult` starts at 1.0 and increases +0.1 per reset,
-so continued play at speed is meaningfully rewarded.
 
 Each tier of clear is meaningfully more valuable than the last. The danger zone
 multiplier transforms the top half of the board from a zone to avoid into a zone with
 real upside. The WOW bonus is a capstone reward for an extremely rare feat.
 
-### 4.1 Speed reset
+### 4.1 Level progression
 
-The fall-speed tier resets to 1 each time the player crosses a threshold. The threshold
-starts at 10,000 points and grows by 5,000 per reset (1st = 10k, 2nd = 15k, 3rd = 20k, …),
-keeping the countdown meaningful as score multipliers accumulate. The sidebar shows a
-"FULL CASCADE IN N pts" countdown that turns orange below 2,000 and red below 500 — a
-persistent tension driver. Each reset also toggles Full Board Cascade mode on or off.
+Every 10 lines cleared advances the level by 1. Level drives the fall-speed tier and
+the scoring multiplier `(level + 1)`. The sidebar shows a "NEXT LEVEL IN X lines"
+countdown so the player always knows how close the next level-up is.
+
+On each level-up:
+- Speed tier increments (up to tier 20)
+- A large "LEVEL N" overlay with a pulsing themed border appears on the board for ~2.8 s
+- A full ascending C-major scale fanfare plays
+- The next line clear forces Full Board Cascade mode (animated domino wave)
 
 ### 4.3 Score-delta feedback
 
@@ -185,6 +188,35 @@ A Color Clear requires a full row where all 10 cells are the same tetromino type
 uncommon enough to feel rare, achievable enough to be a legitimate strategy.
 
 ---
+
+### 4.2 Level themes
+
+Each of the 10 levels in a cycle has a distinct visual theme — a named tuple of
+`(board_cell_color, grid_line_color, tile_brightness_factor)`:
+
+| Theme # | Name | Board bg | Grid | Tile factor |
+|---------|------|----------|------|-------------|
+| 1 | Midnight Blue | (5, 5, 18) | (0, 38, 65) | 1.00 |
+| 2 | Deep Violet | (12, 5, 20) | (48, 0, 72) | 0.92 |
+| 3 | Forest Deep | (5, 16, 5) | (0, 52, 20) | 0.95 |
+| 4 | Abyssal Teal | (5, 14, 16) | (0, 44, 56) | 0.93 |
+| 5 | Crimson Void | (20, 4, 4) | (68, 10, 10) | 0.90 |
+| 6 | Ember | (20, 10, 2) | (68, 32, 0) | 0.94 |
+| 7 | Neon Magenta | (16, 4, 16) | (58, 0, 58) | 0.88 |
+| 8 | Deep Emerald | (4, 18, 10) | (8, 60, 30) | 0.96 |
+| 9 | Cosmic Deep | (5, 8, 22) | (14, 22, 72) | 0.97 |
+| 10 | Solar Dusk | (20, 14, 2) | (68, 46, 8) | 0.91 |
+
+Theme index = `(level - 1) % 10`. Every tile — live piece, ghost, NEXT/HOLD preview —
+uses the same theme's brightness factor so the whole board reads as a coherent color world.
+
+### 4.3 Odometer score display
+
+The SCORE and BEST counters are rendered as 8-digit scrolling digit boxes. When a digit
+changes, it animates by scrolling the old digit upward and the new digit into position
+over 180 ms. The displayed value (`score_disp`) chases the real score at 8 % per frame
+with a 150 pt/frame minimum, so large score jumps read as a fast roll rather than a
+teleport. BEST is always static (faded appearance). SCORE rolls live.
 
 ### 4.4 Cascade gravity
 
@@ -269,6 +301,30 @@ not to compete visually with the live piece.
 
 ---
 
+## 6.5 Demo Mode
+
+Demo mode is an attract sequence that runs when the player presses `D` at the menu or
+after 60 seconds of menu idle. It cycles through 7 pre-scripted scenarios, each loading
+a specific board state and using a simple bot to place a piece that triggers a game event:
+
+| Scenario | Event |
+|----------|-------|
+| 1× Line Clear | Single row filled, gap at col 9 |
+| 2× Line Clear | Two rows, same gap |
+| 3× Line Clear | Three rows |
+| TETRIS! | Four rows |
+| COLOR CLEAR! | Row 19 all cyan (color_id = 1) |
+| WOW! — Perfect Clear | All four bottom rows filled, board empties on drop |
+| Full Cascade! | Three bottom rows + floating complete row 13 |
+
+The bot operates a simple FSM: rotate toward target rotation state → slide toward target
+column → hard drop. After the drop, the demo waits for a scenario-specific duration
+before advancing. The "DEMO" label and current scenario name are overlaid on the board.
+
+`Space` or `Esc` returns to the menu from any demo phase.
+
+---
+
 ## 7. Module Architecture (v1.9.0)
 
 The codebase is split into focused, single-responsibility modules with clean dependency
@@ -283,6 +339,7 @@ boundaries:
 | `game_logic.py` | spawn_next, do_hold, start_new_game, end_game, do_lock, etc. | game_state, app_state, rotation, audio, highscore, music |
 | `input_handler.py` | Event dispatch + DAS auto-repeat (`handle_input`) | game_state, app_state, game_logic, rotation, audio, config, music, music_game |
 | `renderer.py` | All draw_* functions, font cache, rendering constants | constants, board, piece, sprites, game_constants |
+| `demo.py` | Attract/demo mode — scenario definitions, bot FSM, phase management | game_state, app_state, game_logic, rotation, audio, music_game |
 | `crash_handler.py` | Unhandled exception logger + pygame crash window | stdlib only (sys, os, traceback, datetime, pygame) |
 | `main.py` | Bootstrap + frame body (gravity, clearing, cascading, draw) | everything above |
 
