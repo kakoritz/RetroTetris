@@ -110,7 +110,7 @@ SCENARIOS = [
     ("3× Line Clear",             _board_3line,       1500),
     ("TETRIS!  —  4× Line Clear", _board_tetris,      1800),
     ("COLOR CLEAR!",              _board_color_clear, 2000),
-    ("WOW!  —  Perfect Clear",    _board_wow,         2200),
+    ("BOARD CLEAR!  —  Perfect Clear", _board_wow,     2200),
     ("Full Cascade!",             _board_cascade,     2500),
 ]
 

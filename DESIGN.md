@@ -321,7 +321,7 @@ trigger a game event:
 | 3× Line Clear | Rows 17–19 filled, one gap | 1.5 s |
 | TETRIS! | Rows 16–19 filled | 1.8 s |
 | COLOR CLEAR! | Row 19 all cyan; rows 8–18 scattered mixed + cyan | 2.0 s |
-| WOW! — Perfect Clear | All four bottom rows filled | 2.2 s |
+| BOARD CLEAR! — Perfect Clear | All four bottom rows filled | 2.2 s |
 | Full Cascade! | Three bottom rows + floating row 13 | 2.5 s |
 
 Per scenario, the gap column (0–9) and level theme (1–10) are randomised so each cycle

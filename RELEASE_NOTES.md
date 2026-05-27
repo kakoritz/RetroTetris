@@ -2,6 +2,15 @@
 
 ---
 
+## v1.10.2 — Demo label: "WOW" renamed to "BOARD CLEAR"
+*2026-05-27*
+
+### Changed
+- Demo scenario label "WOW! — Perfect Clear" renamed to "BOARD CLEAR! — Perfect Clear"
+  so players understand what event just occurred without knowing internal terminology.
+
+---
+
 ## v1.10.1 — Demo Polish: Tile Tinting, Color Clear Board, Shorter Pauses
 *2026-05-27*
 
