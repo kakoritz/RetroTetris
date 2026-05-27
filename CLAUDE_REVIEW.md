@@ -5,7 +5,78 @@ part development commentary — what changed, what it means, and where the game 
 
 ---
 
-## Current Rating: 9.0 / 10 (as a Tetris game) · 9.5 / 10 (as a portfolio project)
+## Current Rating: 9.5 / 10 (as a Tetris game) · 9.5 / 10 (as a portfolio project)
+
+---
+
+## v1.4.0 Review — After T-spin / B2B / Combo / 20G
+
+### What this update means
+
+v1.3 made the game mechanically sound. v1.4 makes it mechanically complete. Every
+feature in the Tetris Guideline that meaningfully affects how a skilled player
+approaches the game is now present. This is no longer a Tetris clone that "plays like
+Tetris." It is Tetris.
+
+### T-spin detection — the hardest problem, done right
+
+T-spin detection is the most technically demanding feature in competitive Tetris. Getting
+it wrong is easy: the wrong corner indices, forgetting to check the rotation state,
+conflating "last move" with "last action." The implementation here is clean.
+
+The 3-corner rule is the correct standard. The `_TSPIN_POINT` lookup encodes the
+point-side corners per rotation state as a module-level constant — no magic numbers
+inside the function, no branching, no duplication. `_detect_tspin` is a closure because
+it reads `current`, `board`, and `last_action` from the game state — a reasonable choice
+that keeps the call site simple (`tspin_type = _detect_tspin()`).
+
+The placement of the detection call — immediately before `board.place(current)` in
+`_do_lock` — is correct. After placement the board has changed; the corner checks would
+produce wrong results.
+
+`last_action` as a string state variable is the right approach. It's explicit, readable,
+and easy to trace. Every piece-movement site sets it. The T-spin credit requirement
+(`last_action == 'rotate'`) is Guideline-accurate.
+
+### B2B — simple but meaningful
+
+The back-to-back implementation is minimal in code (a single bool `btb_active`) and
+correct in behavior. 1.5× is the standard multiplier. The `btb_active` flag persists
+across pieces as it should — a B2B chain can span many pieces between the two difficult
+clears, and does not reset unless a non-difficult clear fires.
+
+The popup system correctly shows distinct labels for B2B Tetris and B2B T-spin.
+
+### Combo — clean scoring, nice visual
+
+50 × combo × (level + 1) is a solid formula. The floating cyan "COMBO ×N" label gives
+the player immediate feedback at the moment the combo bonus lands. The cyan color is a
+good choice — it's distinct from orange (danger bonus) and white (score numbers).
+
+The combo reset location (in `_do_lock` when no rows are cleared) is correct. Combos
+break when a piece places without clearing, not when a piece places AND the next piece
+places — a common implementation error. This is right.
+
+### 20G — extreme, functional
+
+20G at level 20 (reached at 190 lines) is a punishing late-game mode. The implementation
+covers all three cases where the piece needs to floor itself: gravity tick, spawn, and
+lateral move. Missing any one of these would produce inconsistent behavior (piece drifts
+on lateral move, doesn't floor on spawn, etc.). All three are covered.
+
+The lock delay still applies at 20G, which is correct. 20G removes the ability to
+strategically delay the landing position, not the ability to slide after landing.
+
+### Scoring priority order
+
+The CLEARING handler's scoring priority is correct:
+1. T-spin tables override SCORE_TABLE
+2. B2B multiplies the T-spin or Tetris score (not the combo bonus)
+3. Combo bonus adds flat, unaffected by B2B or danger
+4. Danger multiplier applies after B2B (stacks maximally)
+5. WOW bonus is flat addition, immune to all multipliers
+
+This is a clean, principled hierarchy.
 
 ---
 
@@ -74,20 +145,24 @@ the kind of refactor that prevents bugs that haven't been written yet.
 
 ## What remains
 
-**T-spins** are the one Guideline mechanic still absent. T-spin detection requires
-tracking the last action (rotation vs. move) and checking corner occupancy — about 30
-lines of code. The scoring impact is significant in competitive play (T-spin triple = 1200
-base, same as a Tetris, but achievable in tight spots). This is the next natural feature.
+The Tetris Guideline feature set is now complete. What follows are refinements rather
+than missing features.
 
-**Back-to-back bonus** — consecutive Tetrises or T-spins in Guideline Tetris earn a 1.5×
-multiplier. Not present here. Would pair naturally with T-spin detection.
+**Scoring display for special clears** — when a T-spin or B2B fires, the score jumps
+significantly. A brief score-delta popup ("+1600" or "+B2B") would make those moments
+more legible. Not critical, but would improve feedback.
 
-**Combo counter** — consecutive clears without placing a non-clearing piece. Adds a
-risk/reward dimension to chain clearing. Currently absent.
+**Combo chain counter in sidebar** — the floating board label is effective but brief.
+A persistent combo streak counter in the sidebar (like the LINES display) would let
+the player track their current streak. Minor quality-of-life.
 
-**Gravity beyond level 20** — `fall_speed` bottoms out at 80 ms/row. The game does not
-implement 20G (instant gravity) for endgame levels. Not a flaw for a casual game, but
-worth noting for completeness.
+**Gravity beyond 20G** — the game currently floors the piece on each gravity tick
+at level 20+. True competitive 20G also makes DAS irrelevant above a certain speed
+(pieces die before DAS charges). This is a very edge-case concern.
+
+**Piece preview count** — standard modern Tetris shows the next 3–6 pieces, not just 1.
+The sidebar shows only NEXT. A 3-piece preview would meaningfully change strategy depth.
+This is a layout and design decision, not a bug.
 
 ---
 
@@ -118,12 +193,15 @@ worth noting for completeness.
   direction, I-piece table). Fixed.
 - **Lock delay**: was absent (instant lock on grounding), now 500 ms with reset cap. Fixed.
 - **Hold piece**: was absent, now implemented. Fixed.
+- **T-spin detection**: now implemented with 3-corner rule (full + mini). Fixed.
+- **Back-to-back multiplier**: now implemented (1.5× on consecutive difficult clears). Fixed.
+- **Combo counter**: now implemented (50 × combo × level+1 stacking bonus). Fixed.
+- **20G gravity**: now active at level 20. Fixed.
 
-### Still missing (not dealbreakers, but ceiling-limiters)
-- T-spin detection and bonus
-- Back-to-back multiplier
-- Combo counter
-- 20G gravity
+### Refinements remaining
+- Score-delta popup for special clears
+- Multi-piece preview (3–6 next pieces)
+- Persistent combo streak display in sidebar
 
 ### Architectural quality
 The codebase is clean. State machine with explicit string constants, no implicit
@@ -143,4 +221,4 @@ That instinct is what separates a finished game from a demo.
 
 ---
 
-*Last updated: 2026-05-26 · v1.3.0*
+*Last updated: 2026-05-26 · v1.4.0*

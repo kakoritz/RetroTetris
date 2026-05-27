@@ -2,6 +2,45 @@
 
 ---
 
+## v1.4.0 — T-spin, B2B, Combo, 20G
+*2026-05-26*
+
+Completes the Tetris Guideline feature set. The game now implements every
+standard competitive mechanic.
+
+### Added
+- **T-spin detection** (`_detect_tspin` closure in `main.py`) — 3-corner rule against
+  the fixed 3×3 bounding box of the T-piece. Full T-spin: 3+ corners occupied. Mini:
+  exactly 2 corners occupied, both on the "point side" (`_TSPIN_POINT` lookup table).
+  Detection requires `last_action == 'rotate'` — gravity locks, hard drops, and moves
+  never award T-spin credit. Detected immediately before `board.place()` in `_do_lock`.
+- **T-spin scoring** — separate tables `TSPIN_SCORES` and `TSPIN_MINI_SCORES` (800/1200/1600
+  and 200/400 base respectively), all multiplied by `(level + 1)`.
+- **Back-to-back multiplier** — consecutive "difficult" clears (Tetris or any T-spin) earn
+  1.5× on the line-clear score. A non-difficult clear (single/double/triple without T-spin)
+  breaks the chain. `btb_active` flag persists across pieces.
+- **Combo counter** — `combo` increments on each consecutive line clear; resets to 0 in
+  `_do_lock` when a piece is placed without clearing. Bonus = `50 × combo × (level + 1)`
+  per clear (first clear = no bonus; second = 50×; etc.). Floating cyan `COMBO ×N` label
+  appears on the board when combo ≥ 2.
+- **20G gravity** — at level 20+ (`GRAVITY_20G_LEVEL = 20`), each gravity tick drops the
+  piece all the way to the floor instead of one row. Applied on spawn, on each gravity
+  tick, and after every lateral move/DAS repeat. Lock delay still applies; hard drop
+  remains instant-lock as before.
+- **`last_action` tracking** — new state variable set to `'rotate'`, `'move'`,
+  `'soft_drop'`, `'hard_drop'`, or `'gravity'` at every piece-movement site. Required for
+  T-spin detection; reset to `'gravity'` on piece spawn and hold swap.
+- New `POPUP_STYLES` entries: `T-SPIN!` (purple), `T-SPIN MINI` (dim purple),
+  `B2B TETRIS!` (rainbow), `B2B T-SPIN!` (bright purple).
+- T-spin triple triggers screen shake and max particles (same threshold as Tetris).
+
+### Changed
+- CLEARING scoring section fully rewritten to integrate T-spin, B2B, combo, and danger
+  multiplier in the correct priority order.
+- README scoring table updated with T-spin rows, B2B note, and combo formula.
+
+---
+
 ## v1.3.0 — Guideline Mechanics Update
 *2026-05-26*
 

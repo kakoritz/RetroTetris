@@ -63,6 +63,21 @@ FLASH_TOTAL_WOW = 18    # number of on/off phases
 WOW_BONUS          = 5000   # flat score multiplied by (level + 1)
 WOW_POPUP_DURATION = 4500   # ms — WOW popup lingers much longer than normal
 
+# ── T-spin scoring (base, before level multiplier) ───────────────────────────
+# Full T-spin: last action was a rotation AND 3+ of the 4 bounding-box corners
+# are occupied.  Mini: only 2 corners, but both "point-side" corners are blocked.
+TSPIN_SCORES      = {0: 400, 1: 800,  2: 1200, 3: 1600}
+TSPIN_MINI_SCORES = {0: 100, 1: 200,  2: 400}
+
+# ── combo bonus ───────────────────────────────────────────────────────────────
+# Added on top of the line-clear score for each consecutive clear.
+# combo=0 on the first clear in a row (no bonus); increments with each further
+# consecutive clear so bonus = 50 × combo × (level + 1).
+COMBO_BONUS_UNIT = 50
+
+# ── 20G gravity ───────────────────────────────────────────────────────────────
+GRAVITY_20G_LEVEL = 20   # level at which gravity becomes instant-drop per tick
+
 # ── sidebar popup ─────────────────────────────────────────────────────────────
 POPUP_DURATION    = 2000   # ms
 SHAKE_DURATION    = 380    # ms  (quad clear only)
@@ -113,11 +128,15 @@ _PAUSE_CELL  = 14   # block + 2 px gap
 
 POPUP_STYLES = {
     # count 0 is reserved for the perfect-clear WOW popup (board-centered, rainbow)
-    0: ("!! W O W !!",  None,           32),
-    1: ("Nice!",        (100, 255, 120), 17),
-    2: ("Great!",       (255, 235,  60), 20),
-    3: ("Fantastic!",   (255, 150,  50), 20),
-    4: ("TETRIS!",       None,           24),   # None = rainbow
+    0: ("!! W O W !!",   None,           32),
+    1: ("Nice!",         (100, 255, 120), 17),
+    2: ("Great!",        (255, 235,  60), 20),
+    3: ("Fantastic!",    (255, 150,  50), 20),
+    4: ("TETRIS!",        None,           24),  # None = rainbow
+    5: ("T-SPIN!",       (200, 100, 255), 22),
+    6: ("T-SPIN MINI",   (180,  80, 200), 17),
+    7: ("B2B TETRIS!",    None,           22),  # None = rainbow
+    8: ("B2B T-SPIN!",   (220, 130, 255), 22),
 }
 
 _font_cache: dict = {}
@@ -128,6 +147,19 @@ def _font(size: int, bold: bool = True) -> pygame.font.Font:
         _font_cache[key] = pygame.font.SysFont("monospace", size, bold=bold)
     return _font_cache[key]
 
+
+# ── T-spin corner detection ───────────────────────────────────────────────────
+# The T-piece always fits in a 3×3 bounding box.  The 4 corners are indexed:
+#   0=(TL) 1=(TR) 2=(BL) 3=(BR).
+# "Point-side" corners are the two that sit on the same side as the T-bump.
+# A T-spin mini requires exactly 2 corners blocked AND both point-side corners
+# are among them.
+_TSPIN_POINT = {
+    0: (0, 1),   # state 0 (bump up)    → top corners
+    1: (1, 3),   # state 1 (bump right) → right corners
+    2: (2, 3),   # state 2 (bump down)  → bottom corners
+    3: (0, 2),   # state 3 (bump left)  → left corners
+}
 
 # ── SRS wall-kick tables ──────────────────────────────────────────────────────
 # Offsets are (dx, dy) in game coordinates (x right, y down).
@@ -838,13 +870,27 @@ def main():
     hold_piece:      object = None   # Piece or None
     hold_used:       bool   = False  # True after hold is used; resets on piece lock
 
+    # T-spin / back-to-back / combo
+    last_action: str       = 'gravity'  # 'rotate','move','soft_drop','hard_drop','gravity'
+    tspin_type:  str|None  = None       # 'full', 'mini', or None — detected at lock time
+    btb_active:  bool      = False      # True when last difficult clear enables B2B
+    combo:       int       = 0          # consecutive clears; 0 = no bonus yet
+    # Floating "COMBO ×N" labels drawn on the board (same system as danger_bonuses)
+    combo_labels: list     = []
+
     def _spawn_next():
         nonlocal current, next_piece, lock_timer, lock_move_count, hold_used
+        nonlocal last_action
         current          = next_piece
         next_piece       = Piece()
         lock_timer       = 0
         lock_move_count  = 0
         hold_used        = False
+        last_action      = 'gravity'
+        # 20G: immediately drop new piece to the floor on spawn.
+        if level >= GRAVITY_20G_LEVEL:
+            while board.is_valid(current, dy=1):
+                current.y += 1
         audio.play_spawn(current.color_id)
         return board.is_valid(current)
 
@@ -855,11 +901,12 @@ def main():
         Hold is locked for the rest of the current piece's life — one hold per piece.
         """
         nonlocal current, next_piece, hold_piece, hold_used
-        nonlocal lock_timer, lock_move_count
+        nonlocal lock_timer, lock_move_count, last_action
         if hold_used:
             return
-        hold_used = True
-        lock_timer = lock_move_count = 0
+        hold_used   = True
+        last_action = 'gravity'
+        lock_timer  = lock_move_count = 0
 
         # Reset current to spawn state before stashing it.
         from constants import SHAPES, COLS as _COLS
@@ -880,18 +927,58 @@ def main():
             current.x         = _COLS // 2 - len(current.shape[0]) // 2
             current.y         = 0
 
+        # 20G: floor the swapped-in piece immediately.
+        if level >= GRAVITY_20G_LEVEL:
+            while board.is_valid(current, dy=1):
+                current.y += 1
+        last_action = 'gravity'
         audio.play_spawn(current.color_id)
+
+    def _detect_tspin() -> str | None:
+        """Return 'full', 'mini', or None based on T-spin corner rule.
+
+        A T-spin requires the last action to be a rotation and the piece to be
+        the T-piece.  Full T-spin: 3+ of the 4 corners of the 3×3 bounding box
+        are occupied (wall or stack).  Mini: exactly 2 corners occupied, and
+        both are on the "point side" of the T (the side the bump faces).
+        """
+        if current.type != 'T' or last_action != 'rotate':
+            return None
+        px, py = current.x, current.y
+        # Corner positions of the fixed 3×3 bounding box: TL, TR, BL, BR
+        corners = [(px, py), (px+2, py), (px, py+2), (px+2, py+2)]
+
+        def _blocked(cx: int, cy: int) -> bool:
+            return (cx < 0 or cx >= COLS or cy >= ROWS
+                    or (cy >= 0 and board.grid[cy][cx] != 0))
+
+        flags = [_blocked(cx, cy) for cx, cy in corners]
+        n     = sum(flags)
+
+        if n >= 3:
+            return 'full'
+        if n == 2:
+            pi, pj = _TSPIN_POINT[current.rot_state]
+            if flags[pi] and flags[pj]:
+                return 'mini'
+        return None
 
     def _start_new_game():
         nonlocal board, current, next_piece, score, lines, level, fall_timer
         nonlocal hold_piece, hold_used, lock_timer, lock_move_count
         nonlocal popup_count, popup_timer, wow_active
+        nonlocal last_action, tspin_type, btb_active, combo, combo_labels
         board, current, next_piece, score, lines, level, fall_timer = new_game()
-        hold_piece = None
-        hold_used  = False
-        lock_timer = lock_move_count = 0
-        popup_count = popup_timer = 0
-        wow_active  = False
+        hold_piece   = None
+        hold_used    = False
+        lock_timer   = lock_move_count = 0
+        popup_count  = popup_timer = 0
+        wow_active   = False
+        last_action  = 'gravity'
+        tspin_type   = None
+        btb_active   = False
+        combo        = 0
+        combo_labels = []
         _reset_das()
         audio.play_spawn(current.color_id)
 
@@ -927,7 +1014,9 @@ def main():
         """Place the current piece, check for clears, spawn the next piece."""
         nonlocal state, lock_timer, lock_move_count
         nonlocal clear_rows, clear_count, clear_timer, clear_flash_idx
-        nonlocal clear_cells, wow_active
+        nonlocal clear_cells, wow_active, tspin_type, combo
+        # Detect T-spin BEFORE placing — piece position + last_action must be current.
+        tspin_type = _detect_tspin()
         board.place(current)
         audio.play('lock')
         _reset_das()
@@ -951,6 +1040,7 @@ def main():
             audio.play(clear_count)
             state = CLEARING
         else:
+            combo = 0   # piece placed without clearing — streak broken
             if not _spawn_next():
                 _end_game()
 
@@ -1061,39 +1151,51 @@ def main():
                     das_dir = -1; das_timer = 0; das_charged = False
                     if board.is_valid(current, dx=-1):
                         current.x -= 1
+                        last_action = 'move'
                         audio.play('move')
                         _reset_lock()
+                        if level >= GRAVITY_20G_LEVEL:
+                            while board.is_valid(current, dy=1):
+                                current.y += 1
                 elif event.key == pygame.K_RIGHT:
                     keys_held.add(pygame.K_RIGHT)
                     das_dir = 1; das_timer = 0; das_charged = False
                     if board.is_valid(current, dx=1):
                         current.x += 1
+                        last_action = 'move'
                         audio.play('move')
                         _reset_lock()
+                        if level >= GRAVITY_20G_LEVEL:
+                            while board.is_valid(current, dy=1):
+                                current.y += 1
                 elif event.key == pygame.K_DOWN:
                     if board.is_valid(current, dy=1):
                         current.y += 1
-                        lock_timer = 0   # soft drop resets lock clock but not move count
+                        last_action = 'soft_drop'
+                        lock_timer  = 0
                 elif event.key == pygame.K_UP:
                     if event.mod & pygame.KMOD_CTRL:
                         if _try_rotate(board, current, *current.rotated_ccw()):
+                            last_action = 'rotate'
                             _reset_lock()
                     else:
                         if _try_rotate(board, current, *current.rotated_cw()):
+                            last_action = 'rotate'
                             _reset_lock()
                 elif event.key == pygame.K_z:
                     if _try_rotate(board, current, *current.rotated_ccw()):
+                        last_action = 'rotate'
                         _reset_lock()
                 elif event.key == pygame.K_c:
                     _do_hold()
                 elif event.key == pygame.K_SPACE:
-                    # Hard drop: teleport piece to floor and lock immediately —
-                    # no lock delay; the intent is instant commitment.
+                    # Hard drop: instant commitment — no lock delay.
                     hd_flash_timer = HD_FLASH_DURATION
                     while board.is_valid(current, dy=1):
                         current.y += 1
+                    last_action = 'hard_drop'
                     audio.play('hard_drop')
-                    fall_timer = 0
+                    fall_timer  = 0
                     _do_lock()
 
             # ── GAME OVER ANIM (press any key to continue) ────────────────────
@@ -1225,8 +1327,12 @@ def main():
                     das_timer -= DAS_REPEAT
                     if board.is_valid(current, dx=das_dir):
                         current.x += das_dir
+                        last_action = 'move'
                         audio.play('move')
                         _reset_lock()
+                        if level >= GRAVITY_20G_LEVEL:
+                            while board.is_valid(current, dy=1):
+                                current.y += 1
 
         # ── danger detection → tier-1 tension music + warning line ──────────
         # Row indices 0-9 are the top half of the board.  Any filled cell there
@@ -1243,10 +1349,17 @@ def main():
             if fall_timer >= fall_speed(level):
                 fall_timer = 0
                 if not grounded:
-                    current.y  += 1
-                    lock_timer  = 0   # reset lock clock whenever piece drops naturally
+                    if level >= GRAVITY_20G_LEVEL:
+                        # 20G: drop all the way to the floor on each gravity tick.
+                        while board.is_valid(current, dy=1):
+                            current.y += 1
+                    else:
+                        current.y  += 1
+                        lock_timer  = 0   # reset lock clock on natural descent
+                    last_action = 'gravity'
 
             # Lock delay: count up while grounded; expire → lock the piece.
+            grounded = not board.is_valid(current, dy=1)   # re-check after drop
             if grounded:
                 lock_timer += dt
                 if lock_timer >= LOCK_DELAY:
@@ -1262,25 +1375,59 @@ def main():
                 clear_timer -= fms
                 clear_flash_idx += 1
                 if clear_flash_idx >= ftotal:
-                    # Animation done — tally score, remove rows, spawn next piece.
+                    # ── scoring ───────────────────────────────────────────────
                     lines += clear_count
 
-                    # Danger-zone bonus: any row above the red line (row < 10) doubles
-                    # the entire line-clear score for this clear event.
+                    # Danger-zone multiplier: any cleared row above row 10 → 2×.
                     danger_rows = [r for r in clear_rows if r < 10]
                     danger_mult = 2 if danger_rows else 1
 
-                    base_score   = SCORE_TABLE.get(clear_count, 0) * (level + 1)
-                    score       += base_score * danger_mult
+                    # Base line-clear score: T-spin tables override SCORE_TABLE.
+                    is_tspin      = tspin_type is not None and not wow_active
+                    is_difficult  = (clear_count == 4 or is_tspin) and not wow_active
+                    if is_tspin:
+                        tbl        = TSPIN_MINI_SCORES if tspin_type == 'mini' else TSPIN_SCORES
+                        base_score = tbl.get(clear_count, 0) * (level + 1)
+                    else:
+                        base_score = SCORE_TABLE.get(clear_count, 0) * (level + 1)
+
+                    # Back-to-back: 1.5× on consecutive difficult clears.
+                    btb_bonus = is_difficult and btb_active
+                    if btb_bonus:
+                        base_score = int(base_score * 1.5)
+
+                    score += base_score * danger_mult
+
+                    # Combo bonus: 50 × combo count × (level + 1); combo = 0 on
+                    # first clear in a row (no bonus yet), increments each clear.
+                    combo_bonus = COMBO_BONUS_UNIT * combo * (level + 1)
+                    score      += combo_bonus
+                    if combo >= 1:   # spawn label when there's an actual bonus
+                        combo_labels.append({
+                            'text':      f"COMBO ×{combo + 1}",
+                            'x':         float(BOARD_WIDTH // 2 - 32),
+                            'y':         float(BOARD_HEIGHT // 2),
+                            'vy':        -90.0,
+                            'timer':     1400,
+                            'max_timer': 1400,
+                        })
+                    combo += 1
+
                     if wow_active:
                         score += WOW_BONUS * (level + 1)
+
+                    # Update B2B state for next clear.
+                    if is_difficult:
+                        btb_active = True
+                    elif not wow_active and clear_count > 0:
+                        btb_active = False   # non-difficult clear breaks the chain
 
                     # Spawn a floating ×2 label for each danger-zone row cleared.
                     for r in danger_rows:
                         danger_bonuses.append({
                             'x':         float(random.randint(10, BOARD_WIDTH - 50)),
                             'y':         float(r * CELL_SIZE),
-                            'vy':        -115.0,   # px / s upward
+                            'vy':        -115.0,
                             'timer':     1300,
                             'max_timer': 1300,
                         })
@@ -1288,17 +1435,36 @@ def main():
                     level = lines // 10 + 1
                     best  = max(best, score)
                     board.clear_lines()
-                    # Always use maximum particles + shake for WOW.
-                    particles += spawn_particles(clear_cells, wow_active or clear_count == 4)
-                    if wow_active or clear_count == 4:
+
+                    # ── visual feedback ───────────────────────────────────────
+                    # T-spin triple and Tetris both earn shake + max particles.
+                    big_clear = wow_active or clear_count == 4 or (is_tspin and clear_count == 3)
+                    particles += spawn_particles(clear_cells, big_clear)
+                    if big_clear:
                         shake_timer = SHAKE_DURATION
+
+                    # Popup selection priority: WOW > T-spin > B2B Tetris > normal.
                     if wow_active:
-                        popup_count = 0                  # WOW popup style
+                        popup_count = 0
                         popup_timer = WOW_POPUP_DURATION
                         wow_active  = False
+                    elif is_tspin and btb_bonus:
+                        popup_count = 8   # "B2B T-SPIN!"
+                        popup_timer = POPUP_DURATION
+                    elif is_tspin and tspin_type == 'full':
+                        popup_count = 5   # "T-SPIN!"
+                        popup_timer = POPUP_DURATION
+                    elif is_tspin:
+                        popup_count = 6   # "T-SPIN MINI"
+                        popup_timer = POPUP_DURATION
+                    elif btb_bonus and clear_count == 4:
+                        popup_count = 7   # "B2B TETRIS!"
+                        popup_timer = POPUP_DURATION
                     else:
                         popup_count = clear_count
                         popup_timer = POPUP_DURATION
+
+                    tspin_type = None   # consumed
                     if _spawn_next():
                         state = PLAYING
                     else:
@@ -1323,6 +1489,12 @@ def main():
             db['y']     += db['vy'] * s
             db['timer'] -= dt
         danger_bonuses = [db for db in danger_bonuses if db['timer'] > 0]
+
+        # Advance combo floating labels.
+        for cl in combo_labels:
+            cl['y']     += cl['vy'] * s
+            cl['timer'] -= dt
+        combo_labels = [cl for cl in combo_labels if cl['timer'] > 0]
 
         # ── draw ──────────────────────────────────────────────────────────────
         if state == MENU:
@@ -1358,6 +1530,13 @@ def main():
                 t = _font(20).render("×2", True, (255, 90, 0))
                 t.set_alpha(a)
                 bsurf.blit(t, (int(db['x']), int(db['y'])))
+
+            # Combo floating labels (centred, cyan)
+            for cl in combo_labels:
+                a  = int(255 * cl['timer'] / cl['max_timer'])
+                ct = _font(18).render(cl['text'], True, (0, 220, 240))
+                ct.set_alpha(a)
+                bsurf.blit(ct, (int(cl['x']), int(cl['y'])))
 
             # Hard-drop white flash
             if hd_flash_timer > 0:

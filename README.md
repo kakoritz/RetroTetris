@@ -54,6 +54,10 @@ persisted across sessions in `config.json`. Ghost-piece opacity is also persiste
 - **SRS wall kicks** — full Tetris Guideline kick tables for JLSZT and I pieces (5 tests each)
 - **Lock delay** — 500 ms grace period after landing; move or rotate resets the clock (15-reset cap)
 - **Hold piece** — press `C` to stash the current piece; swap back at any time (once per piece)
+- **T-spin detection** — 3-corner rule; full T-spin and mini both detected and scored separately
+- **Back-to-back bonus** — consecutive Tetrises or T-spins earn 1.5× score on the difficult clear
+- **Combo counter** — consecutive line clears stack a 50 × combo × (level + 1) bonus per clear
+- **20G gravity** — at level 20, pieces drop to the floor instantly on each gravity tick
 - CW and CCW rotation
 - DAS (Delayed Auto-Shift) — tap to move, hold to auto-repeat
 - Ghost piece with adjustable opacity (0 % invisible → 100 % solid, default 15 %)
@@ -89,6 +93,16 @@ All scores are multiplied by `(level + 1)`.
 | Triple (3 lines) | 300 | 600 |
 | Tetris (4 lines) | 1,200 | 2,400 |
 | WOW bonus (perfect clear) | +5,000 | — |
+| T-spin single | 800 | 1,600 |
+| T-spin double | 1,200 | 2,400 |
+| T-spin triple | 1,600 | 3,200 |
+| T-spin mini single | 200 | 400 |
+| T-spin mini double | 400 | 800 |
+
+**Back-to-back bonus:** consecutive Tetrises or T-spins earn 1.5× on the difficult clear score.
+
+**Combo bonus:** `50 × combo count × (level + 1)` stacked on top for each consecutive clear.
+First clear in a row: no bonus. Second: 50 × (level + 1). Third: 100 × (level + 1), etc.
 
 The danger-zone multiplier applies to the entire clear score if **any** of the cleared
 rows are above the red line, making high-risk play in the top half of the board
