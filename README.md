@@ -50,9 +50,13 @@ persisted across sessions in `config.json`. Ghost-piece opacity is also persiste
 ## Features
 
 - All 7 classic tetrominoes with NES-palette colours
-- CW and CCW rotation with wall-kick correction
+- **7-bag randomiser** — every piece type appears once per bag before repeating; no droughts
+- **SRS wall kicks** — full Tetris Guideline kick tables for JLSZT and I pieces (5 tests each)
+- **Lock delay** — 500 ms grace period after landing; move or rotate resets the clock (15-reset cap)
+- **Hold piece** — press `C` to stash the current piece; swap back at any time (once per piece)
+- CW and CCW rotation
 - DAS (Delayed Auto-Shift) — tap to move, hold to auto-repeat
-- Ghost piece with adjustable opacity (0 % invisible → 100 % solid, default 25 %)
+- Ghost piece with adjustable opacity (0 % invisible → 100 % solid, default 15 %)
 - Line-clear flash — escalates from white (single) to gold (Tetris)
 - Particle burst on every line clear
 - Screen shake on a 4-line Tetris clear
@@ -126,7 +130,8 @@ python3 main.py
 | `↑` | Rotate clockwise |
 | `Ctrl+↑` or `Z` | Rotate counter-clockwise |
 | `↓` | Soft drop |
-| `Space` | Hard drop |
+| `Space` | Hard drop (instant lock) |
+| `C` | Hold piece |
 | `Q` / `Esc` | Pause |
 | `R` | Restart |
 | `M` | Toggle music mute |

@@ -46,6 +46,10 @@ _INITIALS_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ "
 DAS_DELAY  = 170   # ms before auto-repeat starts
 DAS_REPEAT = 50    # ms between repeated moves
 
+# ── lock delay ────────────────────────────────────────────────────────────────
+LOCK_DELAY     = 500   # ms grace period after a piece touches the stack
+LOCK_MAX_MOVES = 15    # max resets per piece; prevents infinite stalling
+
 # ── line-clear flash animation ────────────────────────────────────────────────
 FLASH_MS    = {1: 85, 2: 80, 3: 75, 4: 68}   # ms per on/off phase
 FLASH_TOTAL = {1: 2,  2: 4,  3: 6,  4: 10}   # phases per count
@@ -125,13 +129,54 @@ def _font(size: int, bold: bool = True) -> pygame.font.Font:
     return _font_cache[key]
 
 
-# ── rotation helper ───────────────────────────────────────────────────────────
+# ── SRS wall-kick tables ──────────────────────────────────────────────────────
+# Offsets are (dx, dy) in game coordinates (x right, y down).
+# Source: Tetris Guideline SRS, with y-axis negated to match screen coords.
+#
+# Each key is (from_state, to_state). The O-piece never needs kicks; the I-piece
+# uses its own table because its rotation centre differs from JLSZT.
 
-def _try_rotate(board: Board, piece: Piece, rot: list) -> bool:
-    for dx in (0, 1, -1):
-        if board.is_valid(piece, dx=dx, shape=rot):
-            piece.x += dx
-            piece.shape = rot
+_KICKS_JLSZT: dict[tuple, list[tuple]] = {
+    (0, 1): [( 0, 0), (-1,  0), (-1, -1), (0,  2), (-1,  2)],
+    (1, 0): [( 0, 0), ( 1,  0), ( 1,  1), (0, -2), ( 1, -2)],
+    (1, 2): [( 0, 0), ( 1,  0), ( 1,  1), (0, -2), ( 1, -2)],
+    (2, 1): [( 0, 0), (-1,  0), (-1, -1), (0,  2), (-1,  2)],
+    (2, 3): [( 0, 0), ( 1,  0), ( 1, -1), (0,  2), ( 1,  2)],
+    (3, 2): [( 0, 0), (-1,  0), (-1,  1), (0, -2), (-1, -2)],
+    (3, 0): [( 0, 0), (-1,  0), (-1,  1), (0, -2), (-1, -2)],
+    (0, 3): [( 0, 0), ( 1,  0), ( 1, -1), (0,  2), ( 1,  2)],
+}
+
+_KICKS_I: dict[tuple, list[tuple]] = {
+    (0, 1): [( 0,  0), (-2,  0), ( 1,  0), (-2,  1), ( 1, -2)],
+    (1, 0): [( 0,  0), ( 2,  0), (-1,  0), ( 2, -1), (-1,  2)],
+    (1, 2): [( 0,  0), (-1,  0), ( 2,  0), (-1, -2), ( 2,  1)],
+    (2, 1): [( 0,  0), ( 1,  0), (-2,  0), ( 1,  2), (-2, -1)],
+    (2, 3): [( 0,  0), ( 2,  0), (-1,  0), ( 2, -1), (-1,  2)],
+    (3, 2): [( 0,  0), (-2,  0), ( 1,  0), (-2,  1), ( 1, -2)],
+    (3, 0): [( 0,  0), ( 1,  0), (-2,  0), ( 1,  2), (-2, -1)],
+    (0, 3): [( 0,  0), (-1,  0), ( 2,  0), (-1, -2), ( 2,  1)],
+}
+
+
+def _try_rotate(board: Board, piece: Piece,
+                new_shape: list, new_state: int) -> bool:
+    """Attempt rotation with full SRS wall kicks.
+
+    Tries each kick offset for the given state transition in order.
+    On the first valid position the piece is updated and True is returned.
+    """
+    key   = (piece.rot_state, new_state)
+    table = _KICKS_I if piece.type == 'I' else _KICKS_JLSZT
+    # O-piece rotation is a no-op visually; skip kicks entirely.
+    kicks = table.get(key, [(0, 0)]) if piece.type != 'O' else [(0, 0)]
+
+    for dx, dy in kicks:
+        if board.is_valid(piece, dx=dx, dy=dy, shape=new_shape):
+            piece.x        += dx
+            piece.y        += dy
+            piece.shape     = new_shape
+            piece.rot_state = new_state
             audio.play('rotate')
             return True
     return False
@@ -288,6 +333,7 @@ def draw_popup(surf: pygame.Surface, count: int, timer: int) -> None:
 
 def draw_sidebar(surf: pygame.Surface, score: int, lines: int,
                  level: int, next_piece: Piece, best: int,
+                 hold_piece=None, hold_used: bool = False,
                  popup_count: int = 0, popup_timer: int = 0) -> None:
     sx = BOARD_WIDTH + 12
 
@@ -299,31 +345,44 @@ def draw_sidebar(surf: pygame.Surface, score: int, lines: int,
     lbl("LINES", 108); val(str(lines),           124)
     lbl("LEVEL", 155); val(str(level),           171)
 
-    # NEXT piece box
-    lbl("NEXT", 210)
-    box_x, box_y = sx - 4, 228
-    box_w, box_h = SIDEBAR_WIDTH - 16, 80
-    pygame.draw.rect(surf, BORDER_COLOR, (box_x, box_y, box_w, box_h), 1)
+    mini    = CELL_SIZE - 6
+    box_w   = SIDEBAR_WIDTH - 16
+    box_h   = 68
+    box_x   = sx - 4
 
-    mini = CELL_SIZE - 6
-    shape = next_piece.shape
-    pc = max(len(r) for r in shape)
-    pr = len(shape)
-    ox = box_x + (box_w - pc * (mini + 1)) // 2
-    oy = box_y + (box_h - pr * (mini + 1)) // 2
-    for ri, row in enumerate(shape):
-        for ci, v in enumerate(row):
-            if v:
-                surf.blit(get_block(v, mini),
-                          (ox + ci * (mini + 1), oy + ri * (mini + 1)))
+    def _draw_piece_box(piece, label: str, by: int, dimmed: bool = False) -> None:
+        lbl(label, by)
+        bby = by + 18
+        border_col = tuple(max(c - 80, 0) for c in BORDER_COLOR) if dimmed else BORDER_COLOR
+        pygame.draw.rect(surf, border_col, (box_x, bby, box_w, box_h), 1)
+        if piece is not None:
+            shape = piece.shape
+            pc = max(len(r) for r in shape)
+            pr = len(shape)
+            ox = box_x + (box_w - pc * (mini + 1)) // 2
+            oy = bby   + (box_h - pr * (mini + 1)) // 2
+            for ri, row in enumerate(shape):
+                for ci, v in enumerate(row):
+                    if v:
+                        blk = get_block(v, mini)
+                        if dimmed:
+                            # tint the block darker to signal "hold locked"
+                            faded = blk.copy()
+                            faded.set_alpha(90)
+                            surf.blit(faded, (ox + ci * (mini + 1), oy + ri * (mini + 1)))
+                        else:
+                            surf.blit(blk, (ox + ci * (mini + 1), oy + ri * (mini + 1)))
+
+    _draw_piece_box(next_piece, "NEXT", 210)
+    _draw_piece_box(hold_piece, "HOLD", 296, dimmed=hold_used)
 
     # Controls hint
     for i, h in enumerate(["<>  move",
                             "^ cw   Z ccw",
                             "v  soft drop",
                             "SPC  hard drop",
-                            "M  mute music"]):
-        surf.blit(_font(11).render(h, True, BORDER_COLOR), (sx, 326 + i * 16))
+                            "C   hold"]):
+        surf.blit(_font(11).render(h, True, BORDER_COLOR), (sx, 382 + i * 16))
 
     draw_popup(surf, popup_count, popup_timer)
 
@@ -771,12 +830,70 @@ def main():
     danger_bonuses: list = []
     _cheat_seq:     list = []   # tracks 3→2→1 debug sequence; never exposed in docs
 
+    # lock delay
+    lock_timer:      int  = 0    # counts up while piece is grounded
+    lock_move_count: int  = 0    # resets used this piece; caps at LOCK_MAX_MOVES
+
+    # hold piece
+    hold_piece:      object = None   # Piece or None
+    hold_used:       bool   = False  # True after hold is used; resets on piece lock
+
     def _spawn_next():
-        nonlocal current, next_piece
-        current    = next_piece
-        next_piece = Piece()
+        nonlocal current, next_piece, lock_timer, lock_move_count, hold_used
+        current          = next_piece
+        next_piece       = Piece()
+        lock_timer       = 0
+        lock_move_count  = 0
+        hold_used        = False
         audio.play_spawn(current.color_id)
         return board.is_valid(current)
+
+    def _do_hold():
+        """Swap current piece into the hold slot (or take from hold if occupied).
+
+        The held piece is reset to its spawn orientation and position.
+        Hold is locked for the rest of the current piece's life — one hold per piece.
+        """
+        nonlocal current, next_piece, hold_piece, hold_used
+        nonlocal lock_timer, lock_move_count
+        if hold_used:
+            return
+        hold_used = True
+        lock_timer = lock_move_count = 0
+
+        # Reset current to spawn state before stashing it.
+        from constants import SHAPES, COLS as _COLS
+        current.shape     = [row[:] for row in SHAPES[current.type]]
+        current.rot_state = 0
+        current.x         = _COLS // 2 - len(current.shape[0]) // 2
+        current.y         = 0
+
+        if hold_piece is None:
+            hold_piece = current
+            current    = next_piece
+            next_piece = Piece()
+        else:
+            current, hold_piece = hold_piece, current
+            # Reset swapped-in piece to spawn position
+            current.shape     = [row[:] for row in SHAPES[current.type]]
+            current.rot_state = 0
+            current.x         = _COLS // 2 - len(current.shape[0]) // 2
+            current.y         = 0
+
+        audio.play_spawn(current.color_id)
+
+    def _start_new_game():
+        nonlocal board, current, next_piece, score, lines, level, fall_timer
+        nonlocal hold_piece, hold_used, lock_timer, lock_move_count
+        nonlocal popup_count, popup_timer, wow_active
+        board, current, next_piece, score, lines, level, fall_timer = new_game()
+        hold_piece = None
+        hold_used  = False
+        lock_timer = lock_move_count = 0
+        popup_count = popup_timer = 0
+        wow_active  = False
+        _reset_das()
+        audio.play_spawn(current.color_id)
 
     def _end_game():
         nonlocal state, initials, ini_cursor, post_anim_state
@@ -793,6 +910,49 @@ def main():
     def _reset_das():
         nonlocal das_dir, das_timer, das_charged
         das_dir = 0; das_timer = 0; das_charged = False; keys_held.clear()
+
+    def _reset_lock():
+        """Reset the lock-delay clock after a successful move or rotate.
+
+        Only resets if the piece is currently grounded AND we have moves left.
+        Once LOCK_MAX_MOVES resets are used the piece locks on the next tick
+        regardless — this prevents a player from stalling indefinitely.
+        """
+        nonlocal lock_timer, lock_move_count
+        if not board.is_valid(current, dy=1) and lock_move_count < LOCK_MAX_MOVES:
+            lock_timer = 0
+            lock_move_count += 1
+
+    def _do_lock():
+        """Place the current piece, check for clears, spawn the next piece."""
+        nonlocal state, lock_timer, lock_move_count
+        nonlocal clear_rows, clear_count, clear_timer, clear_flash_idx
+        nonlocal clear_cells, wow_active
+        board.place(current)
+        audio.play('lock')
+        _reset_das()
+        lock_timer = lock_move_count = 0
+        full = board.full_rows()
+        if full:
+            full_set        = set(full)
+            wow_active      = all(
+                all(c == 0 for c in board.grid[r])
+                for r in range(ROWS) if r not in full_set
+            )
+            clear_rows      = full_set
+            clear_count     = len(full)
+            clear_timer     = 0
+            clear_flash_idx = 0
+            clear_cells     = [
+                (col, row_i, board.grid[row_i][col])
+                for row_i in full for col in range(COLS)
+                if board.grid[row_i][col]
+            ]
+            audio.play(clear_count)
+            state = CLEARING
+        else:
+            if not _spawn_next():
+                _end_game()
 
     def _debug_clear_board():
         """Fill every row solid then hand off to the normal CLEARING path so
@@ -863,12 +1023,8 @@ def main():
             # ── MENU ──────────────────────────────────────────────────────────
             if state == MENU:
                 if event.key in (pygame.K_SPACE, pygame.K_RETURN, pygame.K_KP_ENTER):
-                    board, current, next_piece, score, lines, level, fall_timer = new_game()
-                    best        = highscore.best()
-                    popup_count = popup_timer = 0
-                    wow_active  = False
-                    _reset_das()
-                    audio.play_spawn(current.color_id)
+                    _start_new_game()
+                    best = highscore.best()
                     music.fadeout(400)
                     music_game.start_sequence()
                     state = PLAYING
@@ -906,52 +1062,39 @@ def main():
                     if board.is_valid(current, dx=-1):
                         current.x -= 1
                         audio.play('move')
+                        _reset_lock()
                 elif event.key == pygame.K_RIGHT:
                     keys_held.add(pygame.K_RIGHT)
                     das_dir = 1; das_timer = 0; das_charged = False
                     if board.is_valid(current, dx=1):
                         current.x += 1
                         audio.play('move')
+                        _reset_lock()
                 elif event.key == pygame.K_DOWN:
                     if board.is_valid(current, dy=1):
                         current.y += 1
+                        lock_timer = 0   # soft drop resets lock clock but not move count
                 elif event.key == pygame.K_UP:
                     if event.mod & pygame.KMOD_CTRL:
-                        _try_rotate(board, current, current.rotated_ccw())
+                        if _try_rotate(board, current, *current.rotated_ccw()):
+                            _reset_lock()
                     else:
-                        _try_rotate(board, current, current.rotated_cw())
+                        if _try_rotate(board, current, *current.rotated_cw()):
+                            _reset_lock()
                 elif event.key == pygame.K_z:
-                    _try_rotate(board, current, current.rotated_ccw())
+                    if _try_rotate(board, current, *current.rotated_ccw()):
+                        _reset_lock()
+                elif event.key == pygame.K_c:
+                    _do_hold()
                 elif event.key == pygame.K_SPACE:
+                    # Hard drop: teleport piece to floor and lock immediately —
+                    # no lock delay; the intent is instant commitment.
                     hd_flash_timer = HD_FLASH_DURATION
                     while board.is_valid(current, dy=1):
                         current.y += 1
                     audio.play('hard_drop')
-                    board.place(current)
-                    _reset_das()
                     fall_timer = 0
-                    full = board.full_rows()
-                    if full:
-                        full_set        = set(full)
-                        # Perfect clear: every row outside the clearing set is empty.
-                        wow_active      = all(
-                            all(c == 0 for c in board.grid[r])
-                            for r in range(ROWS) if r not in full_set
-                        )
-                        clear_rows      = full_set
-                        clear_count     = len(full)
-                        clear_timer     = 0
-                        clear_flash_idx = 0
-                        clear_cells     = [
-                            (col, row_i, board.grid[row_i][col])
-                            for row_i in full for col in range(COLS)
-                            if board.grid[row_i][col]
-                        ]
-                        audio.play(clear_count)
-                        state = CLEARING
-                    else:
-                        if not _spawn_next():
-                            _end_game()
+                    _do_lock()
 
             # ── GAME OVER ANIM (press any key to continue) ────────────────────
             elif state == GAME_OVER_ANIM:
@@ -973,10 +1116,7 @@ def main():
             # ── GAME OVER ─────────────────────────────────────────────────────
             elif state == GAME_OVER:
                 if event.key == pygame.K_r:
-                    board, current, next_piece, score, lines, level, fall_timer = new_game()
-                    popup_count = popup_timer = 0
-                    _reset_das()
-                    audio.play_spawn(current.color_id)
+                    _start_new_game()
                     music_game.stop()
                     music_game.start_sequence()
                     state = PLAYING
@@ -1022,10 +1162,7 @@ def main():
                     music.start_menu()
                     state = MENU
                 elif event.key == pygame.K_r:
-                    board, current, next_piece, score, lines, level, fall_timer = new_game()
-                    popup_count = popup_timer = 0
-                    _reset_das()
-                    audio.play_spawn(current.color_id)
+                    _start_new_game()
                     music_game.stop()
                     music_game.start_sequence()
                     state = PLAYING
@@ -1089,6 +1226,7 @@ def main():
                     if board.is_valid(current, dx=das_dir):
                         current.x += das_dir
                         audio.play('move')
+                        _reset_lock()
 
         # ── danger detection → tier-1 tension music + warning line ──────────
         # Row indices 0-9 are the top half of the board.  Any filled cell there
@@ -1097,41 +1235,22 @@ def main():
             danger = any(any(row) for row in board.grid[:10])
             music_game.set_danger(danger)
 
-        # ── gravity ───────────────────────────────────────────────────────────
+        # ── gravity + lock delay ─────────────────────────────────────────────
         if state == PLAYING:
+            grounded = not board.is_valid(current, dy=1)
+
             fall_timer += dt
             if fall_timer >= fall_speed(level):
                 fall_timer = 0
-                if board.is_valid(current, dy=1):
-                    current.y += 1
-                else:
-                    board.place(current)
-                    audio.play('lock')
-                    _reset_das()
-                    full = board.full_rows()
-                    if full:
-                        full_set        = set(full)
-                        # Perfect clear: every row outside the clearing set is empty.
-                        wow_active      = all(
-                            all(c == 0 for c in board.grid[r])
-                            for r in range(ROWS) if r not in full_set
-                        )
-                        clear_rows      = full_set
-                        clear_count     = len(full)
-                        clear_timer     = 0
-                        clear_flash_idx = 0
-                        clear_cells     = [
-                            (col, row_i, board.grid[row_i][col])
-                            for row_i in full for col in range(COLS)
-                            if board.grid[row_i][col]
-                        ]
-                        audio.play(clear_count)
-                        state = CLEARING
-                    else:
-                        if _spawn_next():
-                            pass
-                        else:
-                            _end_game()
+                if not grounded:
+                    current.y  += 1
+                    lock_timer  = 0   # reset lock clock whenever piece drops naturally
+
+            # Lock delay: count up while grounded; expire → lock the piece.
+            if grounded:
+                lock_timer += dt
+                if lock_timer >= LOCK_DELAY:
+                    _do_lock()
 
         # ── line-clear animation ──────────────────────────────────────────────
         elif state == CLEARING:
@@ -1262,6 +1381,7 @@ def main():
             screen.blit(bsurf, (ox, oy))
 
             draw_sidebar(screen, score, lines, level, next_piece, best,
+                         hold_piece, hold_used,
                          popup_count, popup_timer)
             pygame.draw.rect(screen, BORDER_COLOR,
                              (0, 0, BOARD_WIDTH, BOARD_HEIGHT), 1)
