@@ -164,6 +164,7 @@ POPUP_STYLES = {
     12: ("INSANE!",          (255,  50, 255), 26),
     # Tetris×Tetris cascade: board-centered rainbow (treated like WOW)
     13: ("TETRIS×TETRIS!",    None,           28),
+    14: ("GRAVITY  20G",     (255, 80,   0),  24),
 }
 
 _font_cache: dict = {}
@@ -384,7 +385,7 @@ def draw_popup(surf: pygame.Surface, count: int, timer: int) -> None:
 # ── sidebar ───────────────────────────────────────────────────────────────────
 
 def draw_sidebar(surf: pygame.Surface, score: int, lines: int,
-                 level: int, next_piece: Piece, best: int,
+                 level: int, piece_queue: list, best: int,
                  hold_piece=None, hold_used: bool = False,
                  speed_tier: int = 1, next_speed_reset: int = SPEED_RESET_INTERVAL,
                  reset_bonus_mult: float = 1.0, full_cascade_mode: bool = False,
@@ -432,57 +433,105 @@ def draw_sidebar(surf: pygame.Surface, score: int, lines: int,
         fc_mark = "○ FULL CASCADE"
     surf.blit(_font(11).render(fc_mark, True, fc_col), (sx, 222))
 
-    mini  = CELL_SIZE - 6
-    box_w = SIDEBAR_WIDTH - 16
-    box_h = 72
-    box_x = sx - 4
+    box_w  = SIDEBAR_WIDTH - 16
+    box_x  = sx - 4
+    mini   = CELL_SIZE - 8    # 22 px — main next-piece preview
+    tiny   = 10               # px per cell for pieces 2-5
 
-    def _draw_piece_box(piece, label: str, by: int, dimmed: bool = False,
-                        flash_t: int = 0, pulse: bool = False) -> None:
-        surf.blit(_font(13).render(label, True, BORDER_COLOR), (sx, by))
-        bby = by + 20   # extra gap between label and box
-        # Border: pulsing glow for hold (when it has a piece), flash for next
-        if pulse and hold_has_piece:
-            t_ms = pygame.time.get_ticks()
-            # slow 0→1→0 sine wave, period ~1.8 s
-            glow = 0.45 + 0.45 * math.sin(t_ms / 285.0)
-            gc   = tuple(int(c * glow) for c in (80, 220, 255))
-            pygame.draw.rect(surf, gc, (box_x - 1, bby - 1, box_w + 2, box_h + 2), 2,
-                             border_radius=3)
-        elif flash_t > 0:
-            fa = min(1.0, flash_t / 120)
-            fc = tuple(int(c * fa) for c in (255, 255, 255))
-            pygame.draw.rect(surf, fc, (box_x - 1, bby - 1, box_w + 2, box_h + 2), 2,
-                             border_radius=3)
-        border_col = tuple(max(c - 80, 0) for c in BORDER_COLOR) if dimmed else BORDER_COLOR
-        pygame.draw.rect(surf, border_col, (box_x, bby, box_w, box_h), 1)
-        if piece is not None:
-            shape = piece.shape
-            pc = max(len(r) for r in shape)
-            pr = len(shape)
-            ox = box_x + (box_w - pc * (mini + 1)) // 2
-            oy = bby   + (box_h - pr * (mini + 1)) // 2
-            for ri, row in enumerate(shape):
+    # ── NEXT label + 5-piece preview box ─────────────────────────────────────
+    NEXT_Y     = 238
+    NEXT_BOX_Y = NEXT_Y + 20
+    P1_H       = 72           # height of the top (piece-1) section
+    MINI_H     = 78           # height of the 2×2 grid section
+    NEXT_BOX_H = P1_H + 2 + MINI_H   # total box height
+
+    surf.blit(_font(13).render("NEXT", True, BORDER_COLOR), (sx, NEXT_Y))
+
+    # Flash border when next piece changes
+    if next_flash_timer > 0:
+        fa = min(1.0, next_flash_timer / 120)
+        fc = tuple(int(c * fa) for c in (255, 255, 255))
+        pygame.draw.rect(surf, fc,
+                         (box_x - 1, NEXT_BOX_Y - 1, box_w + 2, NEXT_BOX_H + 2), 2,
+                         border_radius=3)
+    pygame.draw.rect(surf, BORDER_COLOR, (box_x, NEXT_BOX_Y, box_w, NEXT_BOX_H), 1)
+
+    # Piece 1 — centred in top section
+    p1 = piece_queue[0] if piece_queue else None
+    if p1 is not None:
+        s1 = p1.shape
+        pc = max(len(r) for r in s1);  pr = len(s1)
+        ox = box_x + (box_w - pc * (mini + 1)) // 2
+        oy = NEXT_BOX_Y + (P1_H - pr * (mini + 1)) // 2
+        for ri, row in enumerate(s1):
+            for ci, v in enumerate(row):
+                if v:
+                    surf.blit(get_block(v, mini, palette_phase=palette_phase),
+                              (ox + ci * (mini + 1), oy + ri * (mini + 1)))
+
+    # Divider between piece 1 and mini grid
+    div_y = NEXT_BOX_Y + P1_H + 1
+    pygame.draw.line(surf, tuple(max(c - 60, 0) for c in BORDER_COLOR),
+                     (box_x + 4, div_y), (box_x + box_w - 4, div_y))
+
+    # Pieces 2-5 in a 2×2 grid
+    half_w   = box_w // 2
+    grid_y   = div_y + 3
+    slot_h   = (MINI_H - 4) // 2
+    for idx in range(4):
+        p = piece_queue[idx + 1] if (idx + 1) < len(piece_queue) else None
+        col_i = idx % 2;  row_i = idx // 2
+        slot_x = box_x + col_i * half_w
+        slot_y = grid_y + row_i * slot_h
+        # Vertical divider between columns
+        if col_i == 0:
+            pygame.draw.line(surf, tuple(max(c - 60, 0) for c in BORDER_COLOR),
+                             (box_x + half_w, grid_y + 2),
+                             (box_x + half_w, grid_y + MINI_H - 5))
+        if p is not None:
+            sp = p.shape
+            pc2 = max(len(r) for r in sp);  pr2 = len(sp)
+            ox2 = slot_x + (half_w - pc2 * (tiny + 1)) // 2
+            oy2 = slot_y + (slot_h - pr2 * (tiny + 1)) // 2
+            for ri, row in enumerate(sp):
                 for ci, v in enumerate(row):
                     if v:
-                        blk = get_block(v, mini, palette_phase=palette_phase)
-                        if dimmed:
-                            faded = blk.copy()
-                            faded.set_alpha(90)
-                            surf.blit(faded, (ox + ci * (mini + 1), oy + ri * (mini + 1)))
-                        else:
-                            surf.blit(blk, (ox + ci * (mini + 1), oy + ri * (mini + 1)))
+                        surf.blit(get_block(v, tiny, palette_phase=palette_phase),
+                                  (ox2 + ci * (tiny + 1), oy2 + ri * (tiny + 1)))
 
-    _draw_piece_box(next_piece, "NEXT", 238, flash_t=next_flash_timer)
-    _draw_piece_box(hold_piece, "HOLD", 330, dimmed=hold_used, pulse=True)
+    # ── HOLD box ─────────────────────────────────────────────────────────────
+    HOLD_Y     = NEXT_BOX_Y + NEXT_BOX_H + 12
+    HOLD_BOX_Y = HOLD_Y + 20
+    HOLD_BOX_H = 66
 
-    # Controls hint
-    for i, h in enumerate(["<>  move",
-                            "^ cw   Z ccw",
-                            "v  soft drop",
-                            "SPC  hard drop",
-                            "C   hold"]):
-        surf.blit(_font(11).render(h, True, BORDER_COLOR), (sx, 424 + i * 16))
+    surf.blit(_font(13).render("HOLD", True, BORDER_COLOR), (sx, HOLD_Y))
+    if hold_has_piece:
+        t_ms = pygame.time.get_ticks()
+        glow = 0.45 + 0.45 * math.sin(t_ms / 285.0)
+        gc   = tuple(int(c * glow) for c in (80, 220, 255))
+        pygame.draw.rect(surf, gc,
+                         (box_x - 1, HOLD_BOX_Y - 1, box_w + 2, HOLD_BOX_H + 2), 2,
+                         border_radius=3)
+    border_col = tuple(max(c - 80, 0) for c in BORDER_COLOR) if hold_used else BORDER_COLOR
+    pygame.draw.rect(surf, border_col, (box_x, HOLD_BOX_Y, box_w, HOLD_BOX_H), 1)
+    if hold_piece is not None:
+        sh = hold_piece.shape
+        pc = max(len(r) for r in sh);  pr = len(sh)
+        ox = box_x + (box_w - pc * (mini + 1)) // 2
+        oy = HOLD_BOX_Y + (HOLD_BOX_H - pr * (mini + 1)) // 2
+        for ri, row in enumerate(sh):
+            for ci, v in enumerate(row):
+                if v:
+                    blk = get_block(v, mini, palette_phase=palette_phase)
+                    if hold_used:
+                        blk = blk.copy(); blk.set_alpha(90)
+                    surf.blit(blk, (ox + ci * (mini + 1), oy + ri * (mini + 1)))
+
+    # ── Compact controls hint ─────────────────────────────────────────────────
+    ctrl_y = HOLD_BOX_Y + HOLD_BOX_H + 10
+    for i, h in enumerate(["<> move  ^ rot  Z ccw",
+                            "v drop  SPC hard  C hold"]):
+        surf.blit(_font(10).render(h, True, BORDER_COLOR), (sx, ctrl_y + i * 14))
 
     draw_popup(surf, popup_count, popup_timer)
 
@@ -820,7 +869,7 @@ def draw_leaderboard(surf: pygame.Surface, scores: list,
 # ── game helper ───────────────────────────────────────────────────────────────
 
 def new_game():
-    return Board(), Piece(), Piece(), 0, 0, 1, 0
+    return Board(), Piece(), [Piece() for _ in range(5)], 0, 0, 1, 0
 
 
 # ── main loop ─────────────────────────────────────────────────────────────────
@@ -887,7 +936,7 @@ def main():
     audio.prime()   # pre-build SFX so volume slider takes effect immediately
 
     state = MENU
-    board, current, next_piece, score, lines, level, fall_timer = new_game()
+    board, current, piece_queue, score, lines, level, fall_timer = new_game()
     best  = highscore.best()
 
     # settings
@@ -943,6 +992,7 @@ def main():
     # Each entry: {'x', 'y', 'vy', 'timer', 'max_timer'}
     # Spawned when rows above the danger line are cleared; float upward and fade.
     danger_bonuses: list = []
+    score_deltas:   list = []
     _cheat_seq:     list = []   # tracks 3→2→1 debug sequence; never exposed in docs
 
     # lock delay
@@ -981,10 +1031,10 @@ def main():
     cascade_anim_timer: int = 0
 
     def _spawn_next():
-        nonlocal current, next_piece, lock_timer, lock_move_count, hold_used
+        nonlocal current, piece_queue, lock_timer, lock_move_count, hold_used
         nonlocal last_action, next_flash_timer
-        current          = next_piece
-        next_piece       = Piece()
+        current = piece_queue.pop(0)
+        piece_queue.append(Piece())
         next_flash_timer = NEXT_FLASH_MS
         lock_timer       = 0
         lock_move_count  = 0
@@ -1003,8 +1053,8 @@ def main():
         The held piece is reset to its spawn orientation and position.
         Hold is locked for the rest of the current piece's life — one hold per piece.
         """
-        nonlocal current, next_piece, hold_piece, hold_used
-        nonlocal lock_timer, lock_move_count, last_action
+        nonlocal current, piece_queue, hold_piece, hold_used
+        nonlocal lock_timer, lock_move_count, last_action, next_flash_timer
         if hold_used:
             return
         hold_used   = True
@@ -1020,8 +1070,9 @@ def main():
 
         if hold_piece is None:
             hold_piece = current
-            current    = next_piece
-            next_piece = Piece()
+            current    = piece_queue.pop(0)
+            piece_queue.append(Piece())
+            next_flash_timer = NEXT_FLASH_MS
         else:
             current, hold_piece = hold_piece, current
             # Reset swapped-in piece to spawn position
@@ -1067,14 +1118,14 @@ def main():
         return None
 
     def _start_new_game():
-        nonlocal board, current, next_piece, score, lines, level, fall_timer
+        nonlocal board, current, piece_queue, score, lines, level, fall_timer
         nonlocal hold_piece, hold_used, lock_timer, lock_move_count
         nonlocal popup_count, popup_timer, wow_active
         nonlocal last_action, tspin_type, btb_active, combo, combo_labels
         nonlocal speed_tier, next_speed_reset, speed_reset_count, reset_bonus_mult
         nonlocal full_cascade_mode, cascade_level, first_clear_tetris
-        nonlocal speed_reset_flash_timer, danger_bonuses, next_flash_timer
-        board, current, next_piece, score, lines, level, fall_timer = new_game()
+        nonlocal speed_reset_flash_timer, danger_bonuses, score_deltas, next_flash_timer
+        board, current, piece_queue, score, lines, level, fall_timer = new_game()
         hold_piece   = None
         hold_used    = False
         lock_timer   = lock_move_count = 0
@@ -1095,6 +1146,7 @@ def main():
         speed_reset_flash_timer = 0
         next_flash_timer = 0
         danger_bonuses = []
+        score_deltas   = []
         _reset_das()
         audio.play_spawn(current.color_id)
 
@@ -1543,7 +1595,32 @@ def main():
                     if btb_bonus:
                         base_score = int(base_score * 1.5)
 
-                    score += int(base_score * cascade_mult * danger_mult * reset_bonus_mult)
+                    clear_delta = int(base_score * cascade_mult * danger_mult * reset_bonus_mult)
+                    score += clear_delta
+
+                    # Floating score-delta label centred on board
+                    if clear_delta > 0:
+                        if is_tspin and btb_bonus:
+                            _dcol = (220, 130, 255)
+                        elif is_tspin:
+                            _dcol = (200, 100, 255)
+                        elif btb_bonus:
+                            _dcol = (255, 215, 0)
+                        elif cascade_level > 0:
+                            _dcol = (80, 255, 180)
+                        elif danger_mult == 2:
+                            _dcol = (255, 140, 0)
+                        else:
+                            _dcol = (220, 220, 255)
+                        score_deltas.append({
+                            'text':      f"+{clear_delta:,}",
+                            'color':     _dcol,
+                            'x':         float(BOARD_WIDTH * 0.68),
+                            'y':         float(BOARD_HEIGHT * 0.52),
+                            'vy':        -70.0,
+                            'timer':     1600,
+                            'max_timer': 1600,
+                        })
 
                     # Combo bonus: 50 × combo count × (level + 1); combo = 0 on
                     # first clear in a row (no bonus yet), increments each clear.
@@ -1584,6 +1661,9 @@ def main():
                     level     = lines // 10 + 1
                     if level > old_level:
                         speed_tier = min(speed_tier + (level - old_level), 20)
+                        if old_level < GRAVITY_20G_LEVEL <= level:
+                            popup_count = 14
+                            popup_timer = int(POPUP_DURATION * 1.5)
 
                     # Speed reset: every SPEED_RESET_INTERVAL points fall speed
                     # drops back to tier 1, the score multiplier rises by 0.1,
@@ -1726,18 +1806,27 @@ def main():
                         audio.play(min(clear_count, 4))
                         state = CLEARING
                     else:
-                        # Cascade settled with no new rows — award cascade bonus
-                        # and spawn the next piece.
-                        if speed_reset_count > 0:
-                            score += CASCADE_BONUS_PER_RESET * speed_reset_count
-                            while score >= next_speed_reset:
-                                next_speed_reset  += SPEED_RESET_INTERVAL
-                                speed_tier         = 1
-                                speed_reset_count += 1
-                                reset_bonus_mult   = round(1.0 + speed_reset_count * 0.1, 1)
-                                full_cascade_mode  = not full_cascade_mode
-                                speed_reset_flash_timer = SPEED_RESET_FLASH_DURATION
-                            best = max(best, score)
+                        # Cascade settled with no new rows — award cascade bonus.
+                        # Base 500 pts always; grows +5000 per speed reset accumulated.
+                        cascade_end_bonus = 500 + CASCADE_BONUS_PER_RESET * speed_reset_count
+                        score += cascade_end_bonus
+                        score_deltas.append({
+                            'text':      f"+{cascade_end_bonus:,}",
+                            'color':     (80, 255, 180),
+                            'x':         float(BOARD_WIDTH * 0.68),
+                            'y':         float(BOARD_HEIGHT * 0.45),
+                            'vy':        -60.0,
+                            'timer':     1600,
+                            'max_timer': 1600,
+                        })
+                        while score >= next_speed_reset:
+                            next_speed_reset  += SPEED_RESET_INTERVAL
+                            speed_tier         = 1
+                            speed_reset_count += 1
+                            reset_bonus_mult   = round(1.0 + speed_reset_count * 0.1, 1)
+                            full_cascade_mode  = not full_cascade_mode
+                            speed_reset_flash_timer = SPEED_RESET_FLASH_DURATION
+                        best = max(best, score)
                         first_clear_tetris = False
                         cascade_level      = 0
                         if _spawn_next():
@@ -1772,6 +1861,12 @@ def main():
             cl['y']     += cl['vy'] * s
             cl['timer'] -= dt
         combo_labels = [cl for cl in combo_labels if cl['timer'] > 0]
+
+        # Advance score-delta labels.
+        for sd in score_deltas:
+            sd['y']     += sd['vy'] * s
+            sd['timer'] -= dt
+        score_deltas = [sd for sd in score_deltas if sd['timer'] > 0]
 
         # ── draw ──────────────────────────────────────────────────────────────
         if state == MENU:
@@ -1820,6 +1915,13 @@ def main():
                 ct.set_alpha(a)
                 bsurf.blit(ct, (int(cl['x']), int(cl['y'])))
 
+            # Score-delta floating labels (right-of-centre, coloured by event type)
+            for sd in score_deltas:
+                a   = int(255 * sd['timer'] / sd['max_timer'])
+                sdt = _font(16).render(sd['text'], True, sd['color'])
+                sdt.set_alpha(a)
+                bsurf.blit(sdt, (int(sd['x']) - sdt.get_width() // 2, int(sd['y'])))
+
             # Speed-reset "SPEED RESET!" overlay (board-centred, fades out)
             if speed_reset_flash_timer > 0:
                 a = 1.0 if speed_reset_flash_timer > 500 else speed_reset_flash_timer / 500
@@ -1861,7 +1963,7 @@ def main():
 
             screen.blit(bsurf, (ox, oy))
 
-            draw_sidebar(screen, score, lines, level, next_piece, best,
+            draw_sidebar(screen, score, lines, level, piece_queue, best,
                          hold_piece, hold_used,
                          speed_tier, next_speed_reset,
                          reset_bonus_mult, full_cascade_mode,

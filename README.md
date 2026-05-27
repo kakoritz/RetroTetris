@@ -72,6 +72,9 @@ persisted across sessions in `config.json`. Ghost-piece opacity is also persiste
 - **WOW / perfect clear** — clears that leave the board completely empty trigger a
   full-board rainbow flash, a large centred popup, score bonus, and max particles
 - Per-piece spawn tones + move / rotate / lock / hard-drop SFX
+- **5-piece next preview** — NEXT box shows piece 1 large + pieces 2–5 in a compact 2×2 mini grid below
+- **Score-delta labels** — a coloured "+N" floats up from the board on every scored event (T-spin = purple, B2B = gold, cascade = cyan, danger = orange)
+- **GRAVITY 20G alert** — popup fires the moment level 20 is reached so the mode change is never a surprise
 - **Board-centred popups** — all clear feedback (Nice! → Great! → Fantastic! → TETRIS! → T-SPIN! → etc.) floats up from the play area, not the sidebar
 - **Scaled particle explosions** — burst intensity grows with row count (1→2→3→4 lines)
 - **Cascade gravity** — floating blocks settle after every line clear; Full Board Cascade mode (animated domino wave + cascade scoring) toggles on at each speed reset

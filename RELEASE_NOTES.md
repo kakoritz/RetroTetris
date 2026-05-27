@@ -2,6 +2,34 @@
 
 ---
 
+## v1.6.0 — 5-Piece Preview, Score Deltas, 20G Alert, Cascade Bonus Fix
+*2026-05-27*
+
+### Added
+- **5-piece next preview** — the NEXT box now shows piece 1 at full size in the
+  top section and pieces 2–5 in a compact 2×2 mini grid below, separated by a
+  divider. The queue is drawn from a proper 5-deep `piece_queue` so every preview
+  slot always reflects the true upcoming piece order.
+- **Score-delta floating labels** — a coloured "+N" label floats up from the right
+  side of the board every time a line-clear score is awarded. Colour encodes event
+  type: purple = T-spin, gold = B2B, cyan-green = cascade, orange = danger zone,
+  white-blue = normal. The cascade-end bonus also shows a delta label.
+- **GRAVITY 20G popup** — a fiery orange "GRAVITY 20G" popup appears on the board
+  the moment level 20 is reached so the player knows the game mode just changed.
+- **Cascade bonus always awarded** — the cascade-end bonus was previously gated on
+  `speed_reset_count > 0` (no bonus on first playthrough). It now always pays out
+  a base 500 pts + 5,000 per accumulated reset.
+
+### Changed
+- **Compact 2-line controls hint** — sidebar controls condensed from 5 lines to 2
+  to make room for the taller NEXT box.
+
+### Fixed
+- **Cascade bonus countdown stuck at 0** — cascade-end bonus was added to `score`
+  outside the reset-check while-loop. The loop now runs after the bonus is applied.
+
+---
+
 ## v1.5.3 — Popup Polish, Scaled Explosions, Cascade Fixes, Box Glow
 *2026-05-27*
 

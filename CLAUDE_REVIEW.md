@@ -5,7 +5,56 @@ part development commentary — what changed, what it means, and where the game 
 
 ---
 
-## Current Rating: 9.7 / 10 (as a Tetris game) · 9.9 / 10 (as a portfolio project)
+## Current Rating: 8.8 / 10 (as a Tetris game) · 9.2 / 10 (as a portfolio project)
+
+---
+
+## v1.6.0 Review — Strategic Depth Pass
+
+### What this update means
+
+v1.6.0 addresses the honest gaps from the v1.5 rating review. Three of the four
+flagged Tetris-game weaknesses are now fixed: the preview is competitive (5 pieces),
+scoring is legible (delta labels), and 20G is communicated (popup). The cascade
+bonus gate bug is also closed. The remaining gaps — main.py architecture and lack
+of tests — are acknowledged but not addressed here; they require a dedicated
+refactor session.
+
+### 5-piece preview — closing the strategy gap
+
+Single-piece preview is 1990s Tetris. The gap wasn't cosmetic: with only one piece
+ahead, planning more than one move is impossible. A 5-piece queue changes the game
+from reactive to strategic. The player can now see a drought coming, plan a
+T-spin setup two pieces out, or decide to hold based on what's three pieces away.
+The 2×2 mini grid is compact enough to keep the sidebar readable while giving the
+player exactly what modern Tetris expects.
+
+### Score-delta labels — making the scoring system felt
+
+The game has an intricate scoring hierarchy (T-spin × B2B × cascade × danger ×
+reset multiplier) that was entirely invisible. The score counter jumped but there
+was no way to know why. The delta labels make the system legible at the moment it
+fires: purple for T-spins, gold for B2B, cyan for cascades, orange for danger zone.
+A player who sees "+2,400" in gold now knows they just landed a B2B clear. The
+information was always there; now it's communicated.
+
+### 20G popup and cascade bonus — honesty fixes
+
+These are both fixes to things that were quietly wrong. The 20G popup is the game
+saying "something important just changed" instead of leaving the player confused why
+pieces suddenly behave differently. The cascade bonus gate (`speed_reset_count > 0`)
+meant the first playthrough got zero cascade completion bonus, which was a silent
+broken promise — the system looked like it rewarded cascades but didn't on the first
+run.
+
+### Remaining honest gaps
+
+- **main.py at ~1,400 lines** — still a monolith. Render, logic, state machine,
+  event handling, UI all in one file. For a portfolio project reviewed by engineers
+  this is the #1 concern. Needs splitting into at minimum `renderer.py` + `game.py`.
+- **No tests** — board logic, scoring math, and collision detection are all
+  untested. A pytest file with 20 unit tests on `board.py` and the CLEARING handler
+  would close this gap.
 
 ---
 
@@ -378,9 +427,9 @@ legible. This requires a new SETTLING state or a frame-by-frame update loop.
 - **Tier gap**: all tiers pre-generated at game start; zero silence between transitions. Fixed.
 
 ### Refinements remaining
-- Score-delta floating label for special clears (+800, +B2B×1.5, etc.)
-- Multi-piece preview (3–6 next pieces)
-- Persistent combo streak display in sidebar
+- Persistent combo streak display in sidebar (floating label is brief; a number in the sidebar would persist)
+- Split main.py into renderer.py + game.py (architecture concern)
+- Unit tests for board logic, scoring, collision (no tests exist)
 
 ### Architectural quality
 The codebase is clean. State machine with explicit string constants, no implicit
@@ -400,4 +449,4 @@ That instinct is what separates a finished game from a demo.
 
 ---
 
-*Last updated: 2026-05-27 · v1.5.3*
+*Last updated: 2026-05-27 · v1.6.0*

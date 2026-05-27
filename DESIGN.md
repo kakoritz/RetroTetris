@@ -162,7 +162,15 @@ countdown that turns orange below 2,000 and red below 500 — a persistent tensi
 that creates a secondary deadline throughout the game. Each reset also toggles Full Board
 Cascade mode on or off, so the player always knows which mode is coming next.
 
-### 4.2 Cascade gravity
+### 4.3 Score-delta feedback
+
+Every line-clear score award spawns a coloured "+N" label that floats up from the
+right side of the board and fades over ~1.6 s. Colour encodes event type:
+purple = T-spin, gold = B2B, cyan-green = cascade/bonus, orange = danger zone,
+white-blue = normal. The player can read the scoring system without looking at the
+counter.
+
+### 4.4 Cascade gravity
 
 After every line clear, blocks that are now floating fall:
 
