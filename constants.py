@@ -13,7 +13,7 @@ FPS = 60
 # NES-inspired palette
 BG_COLOR    = (15,  15,  35)
 GRID_COLOR  = (30,  30,  60)
-BORDER_COLOR = (80, 80, 120)
+BORDER_COLOR = (185, 185, 220)
 WHITE       = (255, 255, 255)
 YELLOW      = (255, 220,  50)
 

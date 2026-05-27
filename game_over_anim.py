@@ -309,6 +309,6 @@ class GameOverAnim:
 
         # Once every block has landed, prompt the player to continue.
         if self.all_landed:
-            t = _f(14).render("PRESS  ANY  KEY", True, (200, 200, 200))
+            t = _f(14).render("PRESS  ANY  KEY", True, (255, 255, 255))
             surf.blit(t, (BOARD_WIDTH // 2 - t.get_width() // 2,
                           BOARD_HEIGHT - 46))

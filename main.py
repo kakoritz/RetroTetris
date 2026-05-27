@@ -335,7 +335,7 @@ def draw_settings(surf: pygame.Surface, music_vol: int, sfx_vol: int,
         active = (v == scale)
         box_x = 60 + i * 80
         box_col = YELLOW if (active and settings_row == 2) else (
-                  BORDER_COLOR if not active else (160, 160, 60))
+                  BORDER_COLOR if not active else (210, 210, 80))
         pygame.draw.rect(surf, box_col,
                          (box_x, 282, 68, 24),
                          0 if active else 1)
@@ -449,7 +449,7 @@ def draw_music_test(surf: pygame.Surface, selected: int) -> None:
         surf.blit(_font(16).render(f"TIER {i:>2}", True, col), (62, y + 4))
 
         # Description
-        desc_col = (160, 160, 160) if not sel else (220, 220, 100)
+        desc_col = BORDER_COLOR if not sel else (220, 220, 100)
         surf.blit(_font(12, bold=False).render(_TIER_DESC[i], True, desc_col),
                   (158, y + 7))
 
