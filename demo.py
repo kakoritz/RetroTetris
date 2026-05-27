@@ -185,6 +185,12 @@ def update_demo(gs: GameState, app: AppState, dt: int) -> None:
       'clearing' — wait for CLEARING / CASCADING to finish in the main loop
       'wait'     — hold on the cleared board, then advance
     """
+    # Score is meaningless in demo — keep it and the odometer frozen at zero.
+    gs.score              = 0
+    app.score_disp        = 0.0
+    app.score_disp_digits = [0] * 8
+    app.score_anim_offs   = [0.0] * 8
+
     if app.demo_phase == 'setup':
         _load_scenario(gs, app)
         return
