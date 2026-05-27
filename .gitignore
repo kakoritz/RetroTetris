@@ -3,6 +3,7 @@ __pycache__/
 
 # generated at runtime — not part of the source
 highscores.json
+config.json
 *.wav
 
 # editor
