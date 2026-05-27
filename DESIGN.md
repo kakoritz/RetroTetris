@@ -1,250 +1,240 @@
 # T3TR1S — Product Design Document
 
-**Author:** kakoritz  
-**Project:** T3TR1S (RetroTetris)  
-**Purpose:** This document records the product intent, design decisions, and feature
-rationale behind every enhancement made to T3TR1S. Every section originates from a
-deliberate design directive from the project author. This is not a generated summary
-of what was built — it is a record of what was *asked for* and *why*.
+**Project:** T3TR1S  
+**Repo:** [github.com/kakoritz/RetroTetris](https://github.com/kakoritz/RetroTetris)
 
 ---
 
-## 1. Brand & Identity
+## Overview
 
-### 1.1 Title treatment
-The game title is **T3TR1S**. The subtitle "KAKORITZ'S" was explicitly removed because
-it was judged to look *"cheesey"* by the author. The replacement treatment — small
-*"by kakoritz"* text beneath the title — was the author's specific solution: credit
-without ego. The distinction matters: the work stands on its own, the author's name is
-present but secondary.
-
-### 1.2 Visual tone
-The aesthetic target is NES-era: dark background, vivid tetromino colours, a Tron-style
-board grid. The board was intentionally redesigned with a **dark cyan 1px grid line**
-visible between cells (`_BOARD_LINE`) and a near-black cell fill (`_BOARD_CELL`). This
-was not a default — it was a correction to a misalignment bug the author noticed and
-specifically called out: *"the grid lines not matching cell boundaries."*
+T3TR1S is a hand-built NES-style Tetris clone with no external assets. Every visual,
+sound effect, and music note is generated procedurally at runtime. The goal was not to
+reproduce a Tetris clone from a tutorial — it was to build something that *feels* right
+from the inside out: the right weight, the right sound, the right feedback, the right
+tension. Every design decision below was made in service of that feel.
 
 ---
 
-## 2. Audio Philosophy
+## 1. Identity & Branding
 
-### 2.1 Layered music system (10 tiers)
-The author's core requirement was that the music should **build and evolve** rather than
-loop a single track. The tier system was entirely the author's concept: sparse bass at
-tier 1, progressively adding arpeggios, melody, syncopation, and shimmer up to tier 10.
-The author wanted to *hear and feel* each tier before committing to when they played —
-hence the Music Preview screen.
+The game is called **T3TR1S**. The byline reads *"by kakoritz"* — small, beneath the
+title, not competing with it. The work should speak first. Credit is present but not
+loud.
 
-### 2.2 Music sequence
-The playback order was specified precisely by the author:
-> *"tier 4 — 2 loops / t5 — 2 loops / t7 — 1 loop / t8 1 loop / t9 1 loop / t6 — 2 loops / repeat"*
+The visual language is NES: dark background, saturated tetromino colours, a Tron-style
+board grid with 1px dark-cyan lines visible between cells. The grid alignment must be
+pixel-exact. Misalignment breaks the aesthetic immediately and was a zero-tolerance fix
+requirement.
 
-This is not a default progression — it is a curated arrangement. Tier 6 appearing after
-tier 9 (a deliberate step back in intensity before the loop repeats) reflects an
-intentional narrative arc in the music.
+---
+
+## 2. Audio System
+
+### 2.1 Layered music — 10 tiers
+
+The music is not a single looping track. It is a ten-tier arrangement that builds in
+density and complexity: tier 1 is sparse bass only, tier 10 is the full arrangement with
+syncopated 16th-note bass and high-register shimmer. Each tier is a distinct layer added
+on top of the previous. The player hears the music *grow* as the game progresses.
+
+A **Music Preview screen** (accessible from the main menu) exists so each tier can be
+auditioned in isolation. The sound design of the tiers is intentional and should be
+iterable — the preview screen is the tool for that iteration.
+
+### 2.2 Playback sequence
+
+The in-game music follows a curated sequence, not a straight ascending progression:
+
+> Tier 4 × 2 loops → Tier 5 × 2 → Tier 7 × 1 → Tier 8 × 1 → Tier 9 × 1 → Tier 6 × 2 → repeat
+
+Tier 6 appearing *after* tier 9 is intentional — a deliberate step back in intensity
+before the loop resets. The sequence should feel like a composed piece, not a level
+counter.
 
 ### 2.3 Danger mode
-The author defined the danger threshold independently: *"if at any point the game is
-getting close to ending and the bricks are landing in the top 10 slots, drop to tier 1
-music."* Tier 1 (sparse whole-note bass pulse) was chosen specifically because it is
-the most tense and minimal tier. The recovery behaviour — *"once it goes back up to 11+
-(or down rather) then resume the music from the start sequence"* — was also the author's
-explicit call. Resuming from the top of the sequence rather than from where it left off
-was a deliberate reset.
 
-### 2.4 Music Preview screen
-The author wanted to audition tiers before committing to the sequence design:
-> *"I want a special menu option for MUSIC where I can hear each level's music. Select
-> level 1 and 2 and so on so I can hear and feel it because I want to make some changes
-> of which tones are played when."*
+When any block occupies the top 10 rows of the board, the music immediately drops to
+tier 1 (the sparse bass-only track). Tier 1 was chosen for this role specifically because
+it is the most minimal and tense tier in the arrangement.
 
-The preview screen (`T` from the menu) was built specifically so the author could iterate
-on the sound design with ears, not assumptions.
+When the board clears back below the threshold, the music **restarts the sequence from
+the beginning** — not from where it left off. The reset is deliberate: surviving danger
+earns a fresh start, not a resume.
 
-### 2.5 Pause volume behaviour
-The author specified that pausing should *drop* the music volume by 90%, not stop it.
-The overlay exists; the music persists — just quieter. This was a deliberate feel
-decision, not a default.
+### 2.4 Pause behaviour
+
+Pausing must not silence the music. The track continues at 10% of its normal volume —
+audible but not intrusive. This is a feel requirement: the game is suspended, not dead.
+
+Volume must remain at 10% for the entire duration of the pause, including across loop
+boundaries. When a music track ends naturally during a pause and a new one begins, the
+10% reduction must be re-applied immediately.
 
 ---
 
-## 3. Gameplay Mechanics
+## 3. Gameplay & Controls
 
-### 3.1 Hard-drop lock (Space)
-The author identified a specific bug: *"Space-dropped piece could be shifted before
-locking."* The fix requirement was explicit — the piece must lock immediately and
-synchronously when Space is pressed, with no window for lateral input between the drop
-and the lock. This is a precision gameplay decision, not a minor bug fix.
+### 3.1 Hard drop is instant and final
 
-### 3.2 Space as the primary action key
-The author made a deliberate UX decision:
-> *"since the main mechanic button is Space, it's used as the main action key. Therefore
-> it should be the main action key in new game and game over."*
+When the player presses Space to hard-drop a piece, the piece locks immediately and
+synchronously. There is no gap between the drop event and the lock during which lateral
+input can be accepted. This is a precision requirement — the piece goes where it lands,
+not where the player accidentally nudges it after.
 
-Space starts the game from the menu. Space at game over returns to menu. This unifies
-the mental model — one key drives the main loop of play.
+### 3.2 Space is the primary action key
+
+Space is the most-used key in gameplay (hard drop). It should therefore be the primary
+action key everywhere in the game flow:
+
+- **Main menu:** Space starts the game
+- **Game Over:** Space returns to the main menu
+
+This unifies the control model. One key drives the main loop of play.
 
 ### 3.3 Danger zone warning line
-The author's reasoning was empathy-driven:
-> *"when the tier 1 music kicks in it might throw people off, so maybe add a red line
-> that they crossed across the board so they can connect the dots."*
 
-The line is the visual anchor for why the music changed. It appears when danger triggers
-and disappears when the board clears — the connection is direct and self-explanatory.
+A pulsing red horizontal line is drawn at the row-10 boundary whenever blocks are
+present in the top half of the board. The line:
+
+- Appears the moment danger mode triggers
+- Disappears the moment the board clears below row 10
+- Is drawn over the board background but under the live piece
+
+The purpose is to give the player a visual explanation for why the music changed. The
+line and the tension track are the same event — one audio, one visual. The player
+connects the dots.
 
 ### 3.4 Danger zone double points
-The author wanted danger to carry an incentive, not just a penalty:
-> *"any rows cleared above the red line should be double points and that should be
-> indicated somewhere on the screen with ×2 signs floating up — as an incentive to
-> play in the red."*
 
-Two design choices in one: a mechanical reward (2× score) and a visual reward (floating
-orange ×2 labels). Playing dangerously should feel *good*, not just scary.
+Rows cleared above the red line score double for the entire clear event. A floating
+orange **×2** label spawns at each qualifying row's position and floats upward to
+indicate the bonus.
 
-### 3.5 Perfect clear (WOW event)
-The author initiated this feature entirely:
-> *"I want something awesome to happen if you somehow clear the whole board. I know we
-> have TETRIS if you clear 4. But it's going to be an amazing feat to clear a board. So
-> maybe !! W O W !! but then maybe the whole game flashes — like the present graphics
-> that exist all flash the same way the 4-row flash does. Not a screen flash. Anything
-> with colour flashes that way."*
+This is an incentive mechanic, not just a penalty system. The danger zone is scary — it
+should also be rewarding to play in. The ×2 visual makes that reward legible in the
+moment it happens.
 
-The distinction the author drew — *not* a screen-wide white flash but specifically the
-**coloured elements** flashing — is a meaningful visual design call. The rainbow cycle
-over every board cell, rather than a blanket white overlay, honours that distinction.
+### 3.5 Perfect clear — WOW event
 
-### 3.6 Scoring system awareness
-The author explicitly asked to understand the current scoring table:
-> *"What kind of bonuses do we give out for clearing rows in single, double, triple, and
-> Tetris clear?"*
+Clearing lines such that the board becomes **completely empty** triggers a special event:
 
-This was not a passive question — it preceded the danger-zone 2× bonus design, showing
-the author was building a coherent reward hierarchy: single → double → triple → Tetris →
-danger zone multiplier → perfect clear bonus.
+- The entire board (every cell) flashes in a rapidly-cycling rainbow, not a plain white
+  or gold flash — the *coloured* elements flash, not a screen overlay
+- A large **"!! W O W !!"** popup appears centred on the board in rainbow text
+- A score bonus is awarded on top of the normal line-clear score
+- Maximum particle burst and screen shake fire regardless of how many lines were cleared
+
+The distinction between a board flash and a screen flash is intentional. The rainbow
+should feel like the board itself is celebrating, not like a camera effect happening over
+it.
 
 ---
 
-## 4. User Interface & Game States
+## 4. Scoring System
 
-### 4.1 GAME OVER animation — letter order
-The author corrected the initial implementation:
-> *"on game over — do the GAME word first and the OVER part second."*
+All scores are multiplied by `(level + 1)`.
 
-The sequencing is intentional: GAME lands, then OVER lands on top. The reading order
-of the words is preserved in the animation timeline.
+| Event | Base points | In danger zone |
+|-------|------------|----------------|
+| Single | 40 | 80 |
+| Double | 100 | 200 |
+| Triple | 300 | 600 |
+| Tetris (4 lines) | 1,200 | 2,400 |
+| WOW bonus (perfect clear) | +5,000 | — |
 
-### 4.2 GAME OVER — require keypress to advance
-> *"make it so you have to press a button to continue to high score — it doesn't just
-> rush you to high score."*
-
-The author did not want the player to be swept past their own death screen. The animation
-plays fully, all letters land, and the player chooses when to move on. Control stays
-with the player.
-
-### 4.3 GAME OVER — animation speed and sound sync
-The author identified a desync between visuals and audio:
-> *"your sound effects for the GAME OVER are off. The sound effects happen before the
-> letters drop. Maybe make the letters fall faster to time with the sounds."*
-
-The author's proposed fix (faster falls) was the right one. Higher gravity, tighter
-delay windows, shallower starting heights — the fix was physics, and the author
-diagnosed it correctly.
-
-### 4.4 Pause menu — exit key safety
-> *"the escape menu — if you press escape in the escape menu it takes you out of the
-> game. That can't happen. It should be something hard like press Q to exit. Any key to
-> resume."*
-
-The author's reasoning is clear: Escape is too easy to press accidentally. Q is
-deliberate. This is an intentional friction point — exiting to menu mid-game should
-require a choice, not a reflex.
-
-### 4.5 Pause menu — music volume stability
-The author caught a specific bug:
-> *"when the current music loop ends and the next loop kicks in during pause, the sound
-> goes back to normal. So there needs to be a check if in the pause menu that all loops
-> are 90%."*
-
-This is an audio state management requirement, not a general bug report. The author
-understood the mechanism (loop end triggers a new track start, which resets volume) and
-specified the fix (re-apply the reduction after each new track starts).
+The hierarchy is intentional: each tier of clear is meaningfully more valuable than the
+last. The danger zone multiplier makes the top half of the board a risk/reward decision
+rather than purely something to avoid. The WOW bonus is a capstone reward for an
+extremely rare feat.
 
 ---
 
-## 5. Settings & Personalisation
+## 5. Game States & User Interface
 
-### 5.1 Display scale
-The author identified that the game appeared small on some monitors and wanted a
-systematic solution:
-> *"is it possible to add a graphic section to change scale? On some monitors this is
-> really small."*
+### 5.1 GAME OVER animation
 
-The author asked for a plan first, validated the approach, then approved implementation.
-The four scale options (1×, 1.5×, 2×, 2.5×) and their persistence across sessions were
-a direct response to a real usability concern.
+The GAME OVER text is rendered as pixel-art block letters falling from above. The
+animation plays in two waves:
 
-### 5.2 Ghost piece opacity
-The author wanted the shadow tile to be user-adjustable:
-> *"I want another game setting option for shadow tile piece darkness scale or something
-> so you can turn it to zero — off — or all the way to looking like a full tile, but it
-> should start at like 25% default."*
+1. **GAME** falls first (top row), individual blocks dropping in random order with
+   randomised delays
+2. **OVER** falls second (bottom row), starting while GAME is still settling
 
-Three distinct states were specified: invisible (0), default (low %), and solid
-(100%). The author subsequently refined the default:
-> *"I think 15% is better default for ghost overlay."*
+Each individual block is an independent physics body. Letters must land with convincing
+weight — gravity, bounce, and damping. Impact sounds fire when each complete letter
+settles. The animation must complete fully before the player can advance. The player
+chooses when to continue; the game does not rush them past their own death screen.
 
-This reflects iterative design ownership — the author had a feel target and adjusted
-toward it.
+The animation speed must be calibrated so impact sounds land at the same moment the
+letters visually hit. If sounds fire while letters are still falling, the timing is wrong.
 
----
+### 5.2 Pause overlay
 
-## 6. Code Quality & Documentation Standards
+The pause screen is a full-screen overlay with the board still visible beneath it. The
+PAUSE title is rendered in pixel-art block letters (matching the game's aesthetic).
 
-### 6.1 Code quality directive
-The author issued a clear quality mandate:
-> *"ensure that the code is robust and clean and sexy. No laziness. Add notes and
-> comments into what's going on. Check for security holes or anything that needs
-> enhanced or clean. No dirty code please."*
+Key mapping on pause:
+- **Any key** resumes the game
+- **Q** exits to the main menu
 
-The standard is: readable, commented where non-obvious, defensively written.
+Q is the deliberate exit key. Escape is too easy to press accidentally mid-game. Exiting
+to menu should require a conscious choice. The overlay must display this distinction
+clearly.
 
-### 6.2 README as professional document
-The author gave explicit intent for the README:
-> *"in the README I don't want people to think I just vibe-coded this into existence and
-> it's hand-wave dismissed. So in the README, engineer how this came to be and the level
-> of effort on my part somehow, so it looks professional and not a half-ass project."*
+### 5.3 Leaderboard & initials entry
 
-And separately, as features accumulated:
-> *"all these little things we are adding to the game — settings, point systems — should
-> be in the README file. Assume this README file is a job interview and people want to
-> know what this is."*
-
-The README is a portfolio document, not installation instructions. It should communicate
-engineering depth, design intent, and the breadth of systems built.
-
-### 6.3 GitHub distribution
-The author explicitly considered their audience:
-> *"I want this cleanly uploaded to GitHub so my friends can download it."*
-
-And later commissioned this design document specifically to show the project was driven
-by intentional authorship:
-> *"take a look at every one of my prompts this whole time and generate a PDD or SOP
-> type document coming only from my prompts that lay out clearly what it is I want out
-> of all of this — to show this wasn't just Claude-generated, but my intention was
-> behind every single one of these enhancements."*
+The top 10 high scores are persisted to disk. On a qualifying score, the player enters
+their initials before seeing the leaderboard. The game does not skip or auto-advance
+this screen.
 
 ---
 
-## 7. Summary of Design Authorship
+## 6. Settings
 
-Every feature in T3TR1S was initiated, scoped, and refined by the author. The
-implementation was collaborative, but the vision — what to build, how it should feel,
-what the edge cases should do, what the defaults should be — came from one place.
+All settings are persisted across sessions. The settings screen is navigated with
+arrow keys.
 
-The progression from *"fix the grid lines"* to *"double points in the danger zone with
-floating indicators"* is not a list of random requests. It is a coherent product being
-built from the inside out: fix the fundamentals, establish the identity, design the
-systems, tune the feel, then document it for the world.
+| Setting | Range | Default | Behaviour |
+|---------|-------|---------|-----------|
+| Music Volume | 0–100% | 40% | Applies to both menu and game music |
+| SFX Volume | 0–100% | 100% | Previews immediately on adjust |
+| Display Scale | 1× / 1.5× / 2× / 2.5× | 1.5× | Resizes the window; compensates for small monitors |
+| Ghost Opacity | 0–100% | 15% | 0% disables the shadow entirely; 100% renders it as a solid tile |
 
-That is what this project is.
+### 6.1 Display scale
+
+The game is designed at 460×600 logical resolution. On high-DPI or large monitors this
+can appear small. The scale setting multiplies the window size while keeping the logical
+resolution fixed. The game must look and play identically at every scale — only the
+window size changes.
+
+### 6.2 Ghost piece opacity
+
+The shadow tile showing where the active piece will land should be adjustable. At 0% it
+is invisible (for players who find it distracting). At 100% it looks identical to a
+placed block. The default of 15% is intentionally subtle — present but not competing
+with the live piece.
+
+---
+
+## 7. Code & Distribution Standards
+
+### 7.1 Code quality
+
+Code must be clean, readable, and commented where the *why* is non-obvious. No lazy
+shortcuts. No dirty workarounds left in place. If something is broken, fix the root
+cause. Security and correctness take priority.
+
+### 7.2 Zero external assets
+
+No image files. No audio files. No bundled fonts beyond what the system provides.
+Everything the game needs is generated at runtime. This is a hard requirement — the
+game should run from a fresh clone with only `pip install -r requirements.txt`.
+
+### 7.3 Public distribution
+
+The repository must be in a state where anyone can clone it and run it immediately.
+The README is a first-class deliverable — not installation instructions. It must
+communicate the engineering depth of the project, the full feature set, all controls
+and settings, and the scoring system. It should read like a portfolio piece, not a
+hobby project README.
