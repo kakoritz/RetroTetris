@@ -197,18 +197,24 @@ Each of the 10 levels in a cycle has a distinct visual theme — a named tuple o
 | Theme # | Name | Board bg | Grid | Tile factor |
 |---------|------|----------|------|-------------|
 | 1 | Midnight Blue | (5, 5, 18) | (0, 38, 65) | 1.00 |
-| 2 | Deep Violet | (12, 5, 20) | (48, 0, 72) | 0.92 |
-| 3 | Forest Deep | (5, 16, 5) | (0, 52, 20) | 0.95 |
-| 4 | Abyssal Teal | (5, 14, 16) | (0, 44, 56) | 0.93 |
-| 5 | Crimson Void | (20, 4, 4) | (68, 10, 10) | 0.90 |
-| 6 | Ember | (20, 10, 2) | (68, 32, 0) | 0.94 |
-| 7 | Neon Magenta | (16, 4, 16) | (58, 0, 58) | 0.88 |
-| 8 | Deep Emerald | (4, 18, 10) | (8, 60, 30) | 0.96 |
-| 9 | Cosmic Deep | (5, 8, 22) | (14, 22, 72) | 0.97 |
-| 10 | Solar Dusk | (20, 14, 2) | (68, 46, 8) | 0.91 |
+| 2 | Deep Violet | (12, 5, 20) | (48, 0, 72) | 0.88 |
+| 3 | Forest Deep | (5, 16, 5) | (0, 52, 20) | 0.92 |
+| 4 | Abyssal Teal | (5, 14, 16) | (0, 44, 56) | 0.89 |
+| 5 | Crimson Void | (20, 4, 4) | (68, 10, 10) | 0.78 |
+| 6 | Ember | (20, 10, 2) | (68, 32, 0) | 0.90 |
+| 7 | Neon Magenta | (16, 4, 16) | (58, 0, 58) | 0.75 |
+| 8 | Deep Emerald | (4, 18, 10) | (8, 60, 30) | 0.93 |
+| 9 | Cosmic Deep | (5, 8, 22) | (14, 22, 72) | 0.95 |
+| 10 | Solar Dusk | (20, 14, 2) | (68, 46, 8) | 0.83 |
 
 Theme index = `(level - 1) % 10`. Every tile — live piece, ghost, NEXT/HOLD preview —
 uses the same theme's brightness factor so the whole board reads as a coherent color world.
+
+Each theme also contributes an 18 % directional color tint derived from its `board_cell`
+color (`cell_bg × 10`, capped at 255). Pieces at theme 5 (Crimson Void) lean dark red;
+theme 7 (Neon Magenta) shifts toward magenta and dims to 75 %; theme 1 stays at full
+brightness with a neutral blue tint. The visual result is that both the background and
+the tiles change together — the whole board reads as a different color world per theme.
 
 ### 4.3 Odometer score display
 
@@ -305,23 +311,29 @@ not to compete visually with the live piece.
 
 Demo mode is an attract sequence that runs when the player presses `D` at the menu or
 after 60 seconds of menu idle. It cycles through 7 pre-scripted scenarios, each loading
-a specific board state and using a simple bot to place a piece that triggers a game event:
+a specific board state and dropping a pre-positioned vertical I piece into a gap to
+trigger a game event:
 
-| Scenario | Event |
-|----------|-------|
-| 1× Line Clear | Single row filled, gap at col 9 |
-| 2× Line Clear | Two rows, same gap |
-| 3× Line Clear | Three rows |
-| TETRIS! | Four rows |
-| COLOR CLEAR! | Row 19 all cyan (color_id = 1) |
-| WOW! — Perfect Clear | All four bottom rows filled, board empties on drop |
-| Full Cascade! | Three bottom rows + floating complete row 13 |
+| Scenario | Board setup | Wait after event |
+|----------|-------------|-----------------|
+| 1× Line Clear | Row 19 filled, one gap | 1.4 s |
+| 2× Line Clear | Rows 18–19 filled, one gap | 1.4 s |
+| 3× Line Clear | Rows 17–19 filled, one gap | 1.5 s |
+| TETRIS! | Rows 16–19 filled | 1.8 s |
+| COLOR CLEAR! | Row 19 all cyan; rows 8–18 scattered mixed + cyan | 2.0 s |
+| WOW! — Perfect Clear | All four bottom rows filled | 2.2 s |
+| Full Cascade! | Three bottom rows + floating row 13 | 2.5 s |
 
-The bot operates a simple FSM: rotate toward target rotation state → slide toward target
-column → hard drop. After the drop, the demo waits for a scenario-specific duration
-before advancing. The "DEMO" label and current scenario name are overlaid on the board.
+Per scenario, the gap column (0–9) and level theme (1–10) are randomised so each cycle
+looks different. The I piece is pre-positioned at the gap column in vertical orientation
+(`[[1],[1],[1],[1]]`, rot_state=1) and falls under gravity at 320 ms/row.
 
-`Space` or `Esc` returns to the menu from any demo phase.
+For the Color Clear scenario, rows 8–18 are seeded with scattered colors (~55 % density
+near the bottom, ~28 % higher up; ~32 % of filled cells are cyan). This makes the
+board-wide cyan explosion visually obvious when the Color Clear fires.
+
+The "DEMO" label and current scenario name are overlaid on the board. `Space` or `Esc`
+returns to the menu from any demo phase.
 
 ---
 

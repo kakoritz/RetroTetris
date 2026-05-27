@@ -68,7 +68,18 @@ def _board_tetris(gap_col: int) -> list[list[int]]:
                           color_cycle=[3, 5, 6, 7, 4, 2, 3, 5, 6, 7])
 
 def _board_color_clear(gap_col: int) -> list[list[int]]:
-    return _monochrome_row(19, color_id=1, gap_col=gap_col)
+    grid = [[0] * 10 for _ in range(20)]
+    # Trigger row: full cyan except gap (color clear fires when I fills it)
+    for ci in range(10):
+        if ci != gap_col:
+            grid[19][ci] = 1
+    # Scatter mixed colors including cyan so the board-wide cyan blast is obvious
+    for row in range(8, 19):
+        density = 0.55 if row >= 14 else 0.28
+        for ci in range(10):
+            if random.random() < density:
+                grid[row][ci] = 1 if random.random() < 0.32 else random.randint(2, 7)
+    return grid
 
 def _board_wow(gap_col: int) -> list[list[int]]:
     return _rows_with_gap([16, 17, 18, 19], gap_col,
@@ -87,13 +98,13 @@ def _board_cascade(gap_col: int) -> list[list[int]]:
 # Gap column and level theme are randomised per load in _load_scenario.
 
 SCENARIOS = [
-    ("1× Line Clear",             _board_1line,      2800),
-    ("2× Line Clear",             _board_2line,      2800),
-    ("3× Line Clear",             _board_3line,      3000),
-    ("TETRIS!  —  4× Line Clear", _board_tetris,     3500),
-    ("COLOR CLEAR!",              _board_color_clear, 3800),
-    ("WOW!  —  Perfect Clear",    _board_wow,        4000),
-    ("Full Cascade!",             _board_cascade,    4500),
+    ("1× Line Clear",             _board_1line,       1400),
+    ("2× Line Clear",             _board_2line,       1400),
+    ("3× Line Clear",             _board_3line,       1500),
+    ("TETRIS!  —  4× Line Clear", _board_tetris,      1800),
+    ("COLOR CLEAR!",              _board_color_clear, 2000),
+    ("WOW!  —  Perfect Clear",    _board_wow,         2200),
+    ("Full Cascade!",             _board_cascade,     2500),
 ]
 
 

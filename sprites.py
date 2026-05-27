@@ -58,11 +58,18 @@ def _build_ghost(color: tuple, size: int, opacity_pct: int) -> pygame.Surface:
 
 
 def _apply_palette(color: tuple, theme_idx: int) -> tuple:
-    """Scale tile brightness by the current level theme's tile_factor."""
-    factor = LEVEL_THEMES[theme_idx % len(LEVEL_THEMES)][2]
-    if factor >= 1.0:
-        return color
-    return tuple(max(0, int(c * factor)) for c in color)
+    idx = theme_idx % len(LEVEL_THEMES)
+    cell_bg, _, factor = LEVEL_THEMES[idx]
+    r = int(color[0] * factor)
+    g = int(color[1] * factor)
+    b = int(color[2] * factor)
+    tint  = tuple(min(255, c * 10) for c in cell_bg)
+    blend = 0.18
+    return (
+        max(0, min(255, int(r * (1 - blend) + tint[0] * blend))),
+        max(0, min(255, int(g * (1 - blend) + tint[1] * blend))),
+        max(0, min(255, int(b * (1 - blend) + tint[2] * blend))),
+    )
 
 
 def get_block(color_id: int, size: int = CELL_SIZE,

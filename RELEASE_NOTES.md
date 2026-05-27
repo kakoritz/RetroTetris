@@ -2,6 +2,32 @@
 
 ---
 
+## v1.10.1 — Demo Polish: Tile Tinting, Color Clear Board, Shorter Pauses
+*2026-05-27*
+
+### Changed
+- **Demo scenario pause times halved** — wait durations reduced from 2.8–4.5 s to
+  1.4–2.5 s. Transitions feel brisk instead of stalling.
+- **COLOR CLEAR demo board redesigned** — the trigger row (row 19) is still all cyan
+  except the gap column, but rows 8–18 are now scattered with mixed colors (~55 %
+  density in lower rows, ~28 % higher up) with ~32 % of those cells being cyan.
+  When the I piece fills the gap and fires the Color Clear, the board-wide cyan
+  explosion is visually obvious rather than ambiguous.
+- **Tile tint blending added** — `_apply_palette` in `sprites.py` now derives a
+  directional color tint from each theme's board-cell color (`cell_bg × 10`, capped
+  at 255) and blends it into the tile at 18 %. Combined with expanded brightness
+  factor range (0.75–1.00, up from 0.88–1.00), tile colors now visibly shift per
+  theme — Deep Violet pieces lean purple, Crimson Void leans red/dark, Neon Magenta
+  shifts toward magenta and noticeably dims.
+- **LEVEL_THEMES tile factors** updated: range expanded from 0.88–1.00 to 0.75–1.00.
+  Theme 7 (Neon Magenta) at 0.75 is the darkest; theme 1 (Midnight Blue) stays at
+  1.00 as the baseline.
+
+### Tests
+- 87 tests passing.
+
+---
+
 ## v1.10.0 — Level Themes, Demo Mode, Odometer Score, Level-Up Cascade
 *2026-05-27*
 

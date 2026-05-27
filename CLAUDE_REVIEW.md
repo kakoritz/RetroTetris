@@ -9,6 +9,55 @@ part development commentary — what changed, what it means, and where the game 
 
 ---
 
+## v1.10.1 Review — Tile Tinting, Color Clear Board, Demo Pacing
+
+### Tile tinting — the fix that should have shipped with themes
+
+The original `_apply_palette` was a brightness-only multiplier in the range 0.88–1.00.
+A 12 % max darkening on tiles that are already richly saturated (cyan 0,240,240;
+orange 240,140,0) is genuinely imperceptible during play. The game's board background
+and grid lines changed per theme, but the pieces themselves were indistinguishable.
+That created the exact disconnect the user noticed: "the board changed, the tiles did not."
+
+The fix is correct in mechanism and scope. Deriving a tint from `cell_bg × 10` takes
+the theme's defining color (the board background) and projects it onto the tiles at
+18 %. The math works: a cyan piece at Neon Magenta (cell_bg = 16,4,16 → tint 160,40,160)
+with factor 0.75 ends up at roughly (29, 155, 176) — perceptibly dimmer and shifted
+magenta. Crimson Void pushes the same piece red-dark. Each theme now has a directional
+personality the tiles participate in.
+
+Factor range 0.75–1.00 is appropriately dramatic. Theme 7 at 0.75 is noticeably darker
+than theme 1 at 1.00. The tint adds a second dimension of variation on top of brightness.
+The combination means two themes with similar factors can still look different if their
+board colors point in different directions. That's a richer system than brightness alone.
+
+One minor concern: aggressive tinting at 18 % could reduce the perceptual distinctiveness
+of piece colors (can you tell cyan from green at Neon Magenta?). In practice the tint
+is a shift, not an override — hue identity survives. But it's worth watching at extreme
+themes.
+
+### COLOR CLEAR demo board — teaching the mechanic visually
+
+The previous board (single mono-color row) was confusing because the Color Clear looked
+like a normal line clear with some extra effects. A scattered board with cyan cells
+throughout rows 8–18 is the right design: when the I piece drops and the Color Clear
+fires, the player sees cells disappearing all over the board — not just at the bottom.
+The visual immediately communicates "something special happened to that color."
+
+The density gradient (55 % lower, 28 % higher) keeps the board readable while ensuring
+there are enough cyan cells above the trigger row to make the explosion dramatic.
+
+### Demo pacing — timing is design
+
+Halving the wait durations (2.8–4.5 s → 1.4–2.5 s) is correct. The demo exists as a
+wallpaper animation; long pauses between scenarios break the sense of motion. The
+cleared board is a resolved state — the interesting thing already happened. The player's
+eye needs a new scenario faster than 3–4 seconds of empty board provides.
+
+*Last updated: 2026-05-27 · v1.10.1*
+
+---
+
 ## v1.10.0 Review — Level Themes, Demo Mode, Odometer, Fanfare
 
 ### Level themes — the right kind of visual feedback
@@ -770,4 +819,4 @@ That instinct is what separates a finished game from a demo.
 
 ---
 
-*Last updated: 2026-05-27 · v1.9.1*
+*Last updated: 2026-05-27 · v1.10.1*

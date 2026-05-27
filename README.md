@@ -82,7 +82,7 @@ persisted across sessions in `config.json`. Ghost-piece opacity is also persiste
 - **10 level themes** — every level has a distinct board background, grid color, and tile brightness. Themes cycle every 10 levels. Level-up triggers a large centered "LEVEL N" overlay and an ascending fanfare.
 - **Odometer score display** — SCORE and BEST rendered as 8-digit scrolling digit boxes. Each digit rolls upward when it changes, pinball-style.
 - **"NEXT LEVEL IN X lines"** — sidebar countdown showing lines until the next level increment.
-- **Demo mode** — press `D` at the menu or wait 60 s idle to see a bot play through 7 pre-scripted scenarios (1×–4× line clear, Color Clear, WOW, Full Cascade). `Space` or `Esc` exits.
+- **Demo mode** — press `D` at the menu or wait 60 s idle to watch 7 pre-scripted scenarios cycle automatically (1×–4× line clear, Color Clear, WOW, Full Cascade). Each scenario pre-positions a vertical I piece above a random gap column and drops it; gap and level theme randomise every run. `Space` or `Esc` exits.
 - **Post-game stats** — GAME OVER screen shows time played, pieces placed, Tetrises, T-spins, best combo
 - **Placement score** — +10 pts per piece placed
 - **HOLD box glow** — slow cyan pulse when a piece is queued so you never forget it's there
