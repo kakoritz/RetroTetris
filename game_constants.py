@@ -53,6 +53,9 @@ SPEED_RESET_FLASH_DURATION = 2500   # ms
 CASCADE_STEP_MS         = 80    # ms between each one-row gravity wave (legacy ref)
 CASCADE_BONUS_PER_RESET = 5000  # flat score bonus per reset count when cascade completes
 
+# ── next-piece box flash ─────────────────────────────────────────────────────
+NEXT_FLASH_MS = 220   # ms — brief white outline on NEXT box when piece changes
+
 # ── sidebar popup ─────────────────────────────────────────────────────────────
 POPUP_DURATION    = 2000   # ms
 SHAKE_DURATION    = 380    # ms  (quad clear only)
