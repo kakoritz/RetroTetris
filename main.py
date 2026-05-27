@@ -205,14 +205,17 @@ def draw_piece(surf: pygame.Surface, piece: Piece) -> None:
                            (piece.y + row_i) * CELL_SIZE))
 
 
-def draw_ghost(surf: pygame.Surface, board: Board, piece: Piece) -> None:
+def draw_ghost(surf: pygame.Surface, board: Board, piece: Piece,
+               opacity_pct: int = 25) -> None:
+    if opacity_pct == 0:
+        return   # setting fully disabled — skip entirely
     gy = board.ghost_y(piece)
     if gy == piece.y:
         return
     for row_i, row in enumerate(piece.shape):
         for col_i, val in enumerate(row):
             if val:
-                surf.blit(get_ghost(val),
+                surf.blit(get_ghost(val, opacity_pct=opacity_pct),
                           ((piece.x + col_i) * CELL_SIZE,
                            (gy + row_i) * CELL_SIZE))
 
@@ -349,59 +352,68 @@ def draw_game_over_overlay(surf: pygame.Surface, score: int) -> None:
 # ── settings ─────────────────────────────────────────────────────────────────
 
 def draw_settings(surf: pygame.Surface, music_vol: int, sfx_vol: int,
-                  settings_row: int, muted: bool, scale: float) -> None:
+                  settings_row: int, muted: bool, scale: float,
+                  ghost_opacity: int = 25) -> None:
     surf.fill(BG_COLOR)
     cx = SCREEN_WIDTH // 2
 
     t = _font(30).render("SETTINGS", True, YELLOW)
-    surf.blit(t, (cx - t.get_width() // 2, 32))
-    pygame.draw.line(surf, BORDER_COLOR, (40, 76), (SCREEN_WIDTH - 40, 76), 1)
+    surf.blit(t, (cx - t.get_width() // 2, 26))
+    pygame.draw.line(surf, BORDER_COLOR, (40, 68), (SCREEN_WIDTH - 40, 68), 1)
 
     def _vol_row(label, pct, y, selected):
         col = YELLOW if selected else BORDER_COLOR
         surf.blit(_font(14, bold=False).render(label, True, col), (60, y))
-        bx, by, bw, bh = 60, y + 24, 200, 14
+        bx, by, bw, bh = 60, y + 22, 200, 13
         pygame.draw.rect(surf, BORDER_COLOR, (bx, by, bw, bh), 1)
         fill_w = int(bw * pct / 100)
         if fill_w > 2:
             pygame.draw.rect(surf, col, (bx + 1, by + 1, fill_w - 2, bh - 2))
-        surf.blit(_font(15).render(f"{pct}%", True, col), (bx + bw + 10, by - 2))
+        surf.blit(_font(14).render(f"{pct}%", True, col), (bx + bw + 10, by - 2))
         if selected:
             surf.blit(_font(11, bold=False).render("< / >  adjust", True, YELLOW),
-                      (bx + bw + 10, by + 14))
+                      (bx + bw + 10, by + 13))
 
-    _vol_row("MUSIC VOLUME", music_vol, 98,  settings_row == 0)
-    _vol_row("SFX VOLUME",   sfx_vol,   178, settings_row == 1)
+    _vol_row("MUSIC VOLUME",  music_vol,    80, settings_row == 0)
+    _vol_row("SFX VOLUME",    sfx_vol,      150, settings_row == 1)
 
-    # Scale row
+    # ── display scale (button row) ─────────────────────────────────────────────
     scale_col = YELLOW if settings_row == 2 else BORDER_COLOR
-    surf.blit(_font(14, bold=False).render("DISPLAY SCALE", True, scale_col), (60, 258))
+    surf.blit(_font(14, bold=False).render("DISPLAY SCALE", True, scale_col), (60, 222))
     for i, v in enumerate(config.VALID_SCALES):
-        lbl   = f"{v:g}×"
+        lbl    = f"{v:g}×"
         active = (v == scale)
-        box_x = 60 + i * 80
+        box_x  = 60 + i * 80
         box_col = YELLOW if (active and settings_row == 2) else (
                   BORDER_COLOR if not active else (210, 210, 80))
-        pygame.draw.rect(surf, box_col,
-                         (box_x, 282, 68, 24),
-                         0 if active else 1)
+        pygame.draw.rect(surf, box_col, (box_x, 244, 68, 22), 0 if active else 1)
         tc = BG_COLOR if active else box_col
         surf.blit(_font(14).render(lbl, True, tc),
-                  (box_x + 34 - _font(14).size(lbl)[0] // 2, 284))
+                  (box_x + 34 - _font(14).size(lbl)[0] // 2, 246))
     if settings_row == 2:
         surf.blit(_font(11, bold=False).render("< / >  change scale  (restarts window)",
-                                               True, YELLOW), (60, 312))
+                                               True, YELLOW), (60, 272))
 
+    # ── ghost / shadow opacity (slider) ────────────────────────────────────────
+    _vol_row("GHOST  OPACITY", ghost_opacity, 300, settings_row == 3)
+    if settings_row == 3 and ghost_opacity == 0:
+        surf.blit(_font(11, bold=False).render("shadow disabled", True, BORDER_COLOR),
+                  (60, 336))
+    elif settings_row == 3 and ghost_opacity == 100:
+        surf.blit(_font(11, bold=False).render("full solid tile", True, BORDER_COLOR),
+                  (60, 336))
+
+    # ── mute toggle ───────────────────────────────────────────────────────────
     mute_col = (255, 80, 80) if muted else (80, 220, 100)
     t = _font(15).render(f"M  —  MUSIC : {'MUTED' if muted else 'ON'}", True, mute_col)
-    surf.blit(t, (cx - t.get_width() // 2, 338))
+    surf.blit(t, (cx - t.get_width() // 2, 372))
 
-    pygame.draw.line(surf, BORDER_COLOR, (40, 366), (SCREEN_WIDTH - 40, 366), 1)
+    pygame.draw.line(surf, BORDER_COLOR, (40, 400), (SCREEN_WIDTH - 40, 400), 1)
     for i, hint in enumerate(["UP / DOWN  :  select row",
                                "LEFT / RIGHT  :  adjust",
                                "ENTER / ESC  :  back to menu"]):
         t = _font(13, bold=False).render(hint, True, BORDER_COLOR)
-        surf.blit(t, (cx - t.get_width() // 2, 380 + i * 20))
+        surf.blit(t, (cx - t.get_width() // 2, 414 + i * 20))
 
     pygame.draw.rect(surf, BORDER_COLOR, (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), 2)
 
@@ -680,9 +692,10 @@ def main():
     best  = highscore.best()
 
     # settings
-    music_vol_pct  = 40    # 0-100
-    sfx_vol_pct    = 100   # 0-100
-    settings_row   = 0     # 0=music, 1=sfx, 2=scale
+    music_vol_pct    = 40                          # 0-100
+    sfx_vol_pct      = 100                         # 0-100
+    ghost_opacity_pct = config.get_ghost_opacity() # 0-100, persisted
+    settings_row     = 0                           # 0=music 1=sfx 2=scale 3=ghost
 
     # game-over animation
     go_anim         = GameOverAnim()
@@ -970,9 +983,9 @@ def main():
                 if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_ESCAPE):
                     state = MENU
                 elif event.key == pygame.K_UP:
-                    settings_row = (settings_row - 1) % 3
+                    settings_row = (settings_row - 1) % 4
                 elif event.key == pygame.K_DOWN:
-                    settings_row = (settings_row + 1) % 3
+                    settings_row = (settings_row + 1) % 4
                 elif event.key in (pygame.K_LEFT, pygame.K_RIGHT):
                     delta = -5 if event.key == pygame.K_LEFT else 5
                     if settings_row == 0:
@@ -983,7 +996,7 @@ def main():
                         sfx_vol_pct = max(0, min(100, sfx_vol_pct + delta))
                         audio.set_sfx_volume(sfx_vol_pct / 100)
                         audio.play('rotate')   # instant SFX preview
-                    else:
+                    elif settings_row == 2:
                         scales = config.VALID_SCALES
                         idx = scales.index(current_scale) if current_scale in scales else 0
                         idx = max(0, min(len(scales) - 1,
@@ -993,6 +1006,9 @@ def main():
                             current_scale = new_scale
                             config.set_scale(current_scale)
                             display = _make_display(current_scale)
+                    else:   # row 3 — ghost opacity
+                        ghost_opacity_pct = max(0, min(100, ghost_opacity_pct + delta))
+                        config.set_ghost_opacity(ghost_opacity_pct)
 
         # ── DAS auto-repeat ───────────────────────────────────────────────────
         if state == PLAYING and das_dir != 0:
@@ -1146,7 +1162,7 @@ def main():
                 _draw_danger_line(bsurf)
 
             if state in (PLAYING, PAUSED):
-                draw_ghost(bsurf, board, current)
+                draw_ghost(bsurf, board, current, ghost_opacity_pct)
                 draw_piece(bsurf, current)
 
             draw_particles(bsurf, particles)
@@ -1198,7 +1214,8 @@ def main():
 
         elif state == SETTINGS:
             draw_settings(screen, music_vol_pct, sfx_vol_pct,
-                          settings_row, music.is_muted(), current_scale)
+                          settings_row, music.is_muted(), current_scale,
+                          ghost_opacity_pct)
 
         elif state == MUSIC_TEST:
             draw_music_test(screen, music_test_tier)
