@@ -108,6 +108,22 @@ def handle_input(gs: GameState, app: AppState, dt: int) -> None:
             else:
                 app._cheat_seq.clear()
 
+            # Admin crash test: type 'bug' to trigger a fake crash through
+            # the crash handler so log output and window can be verified.
+            _BUG = [pygame.K_b, pygame.K_u, pygame.K_g]
+            if event.key == _BUG[len(app._debug_seq)]:
+                app._debug_seq.append(event.key)
+                if len(app._debug_seq) == 3:
+                    app._debug_seq.clear()
+                    raise RuntimeError(
+                        "DEBUG CRASH TEST — admin sequence 'bug' fired\n"
+                        "This is a deliberate fake crash to verify crash_handler.py.\n"
+                        "crash_latest.log should have been written next to main.py.\n"
+                        "(Not a real error — safe to ignore.)"
+                    )
+            else:
+                app._debug_seq.clear()
+
             if event.key in (pygame.K_q, pygame.K_ESCAPE):
                 app.pre_pause_vol = pygame.mixer.music.get_volume()
                 pygame.mixer.music.set_volume(max(0.0, app.pre_pause_vol * 0.10))

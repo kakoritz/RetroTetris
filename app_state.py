@@ -76,8 +76,9 @@ class AppState:
         self.lb_hi_score: int | None  = None
         self.best:        int         = 0
 
-        # ── debug cheat sequence ──────────────────────────────────────────────
-        self._cheat_seq: list = []
+        # ── debug cheat sequences ─────────────────────────────────────────────
+        self._cheat_seq: list = []   # 3-2-1 WOW trigger
+        self._debug_seq: list = []   # b-u-g fake crash trigger
 
     def reset_das(self) -> None:
         """Clear DAS state — called when a new game starts or a piece locks."""
