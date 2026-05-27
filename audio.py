@@ -61,6 +61,14 @@ def _build() -> dict:
         'rotate':    _sound(_note(760, 48, _V, 14.0)),
         'move':      _sound(_note(760, 35, _V, 16.0)),
         'lock':      _sound(_note(180, 120, _V, 7.0)),
+        # Rising 3-note arpeggio — G5 → C6 → E6 — short, celebratory, not intrusive.
+        'levelup':   _sound(
+            _note(784,  80, _V, 9.0),
+            _silence(10),
+            _note(1047, 80, _V, 7.0),
+            _silence(10),
+            _note(1319, 130, _V, 5.0),
+        ),
         'hard_drop': _sound(
             _sweep(900, 120, 260, _V, 0.4),
             _silence(12),

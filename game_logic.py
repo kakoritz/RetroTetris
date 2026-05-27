@@ -328,6 +328,7 @@ def tick_clearing(gs: GameState, app: AppState, dt: int) -> None:
     if gs.level > old_level:
         gs.speed_tier = min(gs.speed_tier + (gs.level - old_level), 20)
         gs.level_up_flash_timer = 700
+        audio.play('levelup')
         if old_level < GRAVITY_20G_LEVEL <= gs.level:
             gs.popup_count = 14
             gs.popup_timer = int(POPUP_DURATION * 1.5)
