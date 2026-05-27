@@ -43,29 +43,36 @@ def _rows_with_gap(row_indices: list[int], gap_col: int,
     return grid
 
 
-def _monochrome_row(row_idx: int, color_id: int, gap_col: int) -> list[list[int]]:
-    """Single mono-color row (for color-clear demo)."""
-    grid = [[0] * 10 for _ in range(20)]
-    for ci in range(10):
-        if ci != gap_col:
-            grid[row_idx][ci] = color_id
-    return grid
+def _add_top_scatter(grid: list[list[int]], gap_col: int) -> None:
+    """Scatter blocks in the upper board so a line clear never leaves an empty board."""
+    other_cols = [c for c in range(10) if c != gap_col]
+    for row in [2, 5, 9]:
+        for c in random.sample(other_cols, random.randint(2, 4)):
+            grid[row][c] = random.randint(2, 7)
 
 
 # ── scenario board factories (each takes gap_col) ────────────────────────────
 
 def _board_1line(gap_col: int)  -> list[list[int]]:
-    return _rows_with_gap([19], gap_col)
+    grid = _rows_with_gap([19], gap_col)
+    _add_top_scatter(grid, gap_col)
+    return grid
 
 def _board_2line(gap_col: int)  -> list[list[int]]:
-    return _rows_with_gap([18, 19], gap_col)
+    grid = _rows_with_gap([18, 19], gap_col)
+    _add_top_scatter(grid, gap_col)
+    return grid
 
 def _board_3line(gap_col: int)  -> list[list[int]]:
-    return _rows_with_gap([17, 18, 19], gap_col)
+    grid = _rows_with_gap([17, 18, 19], gap_col)
+    _add_top_scatter(grid, gap_col)
+    return grid
 
 def _board_tetris(gap_col: int) -> list[list[int]]:
-    return _rows_with_gap([16, 17, 18, 19], gap_col,
+    grid = _rows_with_gap([16, 17, 18, 19], gap_col,
                           color_cycle=[3, 5, 6, 7, 4, 2, 3, 5, 6, 7])
+    _add_top_scatter(grid, gap_col)
+    return grid
 
 def _board_color_clear(gap_col: int) -> list[list[int]]:
     grid = [[0] * 10 for _ in range(20)]
@@ -73,11 +80,11 @@ def _board_color_clear(gap_col: int) -> list[list[int]]:
     for ci in range(10):
         if ci != gap_col:
             grid[19][ci] = 1
-    # Scatter mixed colors including cyan so the board-wide cyan blast is obvious
+    # Scatter mixed+cyan above; gap_col must stay empty so the I piece reaches row 19
     for row in range(8, 19):
         density = 0.55 if row >= 14 else 0.28
         for ci in range(10):
-            if random.random() < density:
+            if ci != gap_col and random.random() < density:
                 grid[row][ci] = 1 if random.random() < 0.32 else random.randint(2, 7)
     return grid
 
