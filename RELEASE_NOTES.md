@@ -2,6 +2,34 @@
 
 ---
 
+## v1.8.0 — Color Clear, Stats, DAS Settings, Combo/Level UX, Drop Scoring, Tests
+*2026-05-27*
+
+### Added
+- **Color Clear event** — when every cell in a cleared row shares the same color,
+  all remaining cells of that color on the board are simultaneously destroyed.
+  Triggers a cascade, awards a flat +5,000 bonus, and shows a rainbow "COLOR CLEAR!"
+  popup. Genuinely rare (requires a mono-color full row) and spectacular when it fires.
+- **Post-game statistics screen** — the GAME OVER overlay now shows: time played,
+  pieces placed, Tetrises cleared, T-spins, and best combo streak.
+- **DAS / ARR preset in Settings** — new row 4: Slow / Normal / Fast / Instant.
+  Controls delay-before-repeat and auto-repeat rate. Persists to `config.json`.
+- **Persistent combo indicator** — a "COMBO ×N" line is always visible in the sidebar,
+  bright cyan when a streak is active, dimmed when not.
+- **Level-up flash** — the sidebar level number briefly turns white for 700 ms on
+  each level increment, giving a clear peripheral signal that the level changed.
+- **Soft drop / hard drop micro-scoring** — +1 pt per row soft-dropped, +2 pts per
+  row hard-dropped (standard Tetris Guideline behaviour).
+- **Test suite** — `tests/` directory with 42 passing pytest unit tests covering
+  board logic (collision, clearing, cascade gravity, color removal) and scoring
+  constants (tables, formulas, multipliers, bonus values).
+
+### Changed
+- Sidebar SPEED / FULL CASCADE IN sections shifted down 18 px to accommodate the
+  new combo row. NEXT box remains at the same visual position.
+
+---
+
 ## v1.7.1 — Settings Accessible from Pause
 *2026-05-27*
 

@@ -171,6 +171,21 @@ purple = T-spin, gold = B2B, cyan-green = cascade/bonus, orange = danger zone,
 white-blue = normal. The player can read the scoring system without looking at the
 counter.
 
+### 4.5 Color Clear
+
+When a full row is cleared and every cell in that row shares the same color_id, a
+**Color Clear** fires. All remaining cells of that color on the board are removed,
+spawning a max-intensity particle burst for each cell destroyed. A cascade follows
+from the floating blocks left behind.
+
+The event awards a flat +5,000 bonus and shows a board-centered rainbow "COLOR CLEAR!"
+popup (same treatment as WOW). It takes priority over T-spin and B2B popups.
+
+A Color Clear requires a full row where all 10 cells are the same tetromino type —
+uncommon enough to feel rare, achievable enough to be a legitimate strategy.
+
+---
+
 ### 4.4 Cascade gravity
 
 After every line clear, blocks that are now floating fall:
@@ -236,6 +251,7 @@ All settings persist across sessions via `config.json`.
 | SFX Volume | 0–100% | 100% | Previews live on adjust |
 | Display Scale | 1× / 1.5× / 2× / 2.5× | 1.5× | Resizes window; logical resolution unchanged |
 | Ghost Opacity | 0–100% | 15% | 0% = disabled; 100% = solid tile appearance |
+| Input Speed | Slow / Normal / Fast / Instant | Normal | DAS delay + ARR repeat rate |
 
 ### 6.1 Display scale
 

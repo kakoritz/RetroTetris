@@ -63,6 +63,7 @@ FLASH_TOTAL_WOW = 18    # number of on/off phases
 
 WOW_BONUS          = 5000   # flat score multiplied by (level + 1)
 WOW_POPUP_DURATION = 4500   # ms — WOW popup lingers much longer than normal
+COLOR_CLEAR_BONUS  = 5000   # flat bonus for clearing a mono-color row
 
 # ── T-spin scoring (base, before level multiplier) ───────────────────────────
 # Full T-spin: last action was a rotation AND 3+ of the 4 bounding-box corners
@@ -166,6 +167,8 @@ POPUP_STYLES = {
     # Tetris×Tetris cascade: board-centered rainbow (treated like WOW)
     13: ("TETRIS×TETRIS!",    None,           28),
     14: ("GRAVITY  20G",     (255, 80,   0),  24),
+    # color-clear event: board-centered rainbow, same treatment as WOW
+    15: ("COLOR CLEAR!",     None,           28),
 }
 
 _font_cache: dict = {}
@@ -336,8 +339,8 @@ def draw_popup(surf: pygame.Surface, count: int, timer: int) -> None:
         return
     text_str, base_color, base_size = POPUP_STYLES[count]
 
-    # WOW (0) and TETRIS×TETRIS (13) use the board-centred position + long duration.
-    is_wow   = (count in (0, 13))
+    # WOW (0), TETRIS×TETRIS (13), COLOR CLEAR (15): board-centred + long duration.
+    is_wow   = (count in (0, 13, 15))
     duration = WOW_POPUP_DURATION if is_wow else POPUP_DURATION
     elapsed  = duration - timer
 
@@ -392,7 +395,8 @@ def draw_sidebar(surf: pygame.Surface, score: int, lines: int,
                  reset_bonus_mult: float = 1.0, full_cascade_mode: bool = False,
                  palette_phase: int = 0,
                  popup_count: int = 0, popup_timer: int = 0,
-                 next_flash_timer: int = 0, hold_has_piece: bool = False) -> None:
+                 next_flash_timer: int = 0, hold_has_piece: bool = False,
+                 combo: int = 0, level_up_flash_timer: int = 0) -> None:
     sx = BOARD_WIDTH + 12
 
     def lbl(text, y): surf.blit(_font(13).render(text, True, BORDER_COLOR), (sx, y))
@@ -404,18 +408,24 @@ def draw_sidebar(surf: pygame.Surface, score: int, lines: int,
     # Level and Lines share one compact row
     surf.blit(_font(12).render("LVL",   True, BORDER_COLOR), (sx,      108))
     surf.blit(_font(12).render("LINES", True, BORDER_COLOR), (sx + 65, 108))
-    surf.blit(_font(17).render(str(level), True, YELLOW),    (sx,      122))
+    level_col = WHITE if level_up_flash_timer > 0 else YELLOW
+    surf.blit(_font(17).render(str(level), True, level_col), (sx,      122))
     surf.blit(_font(17).render(str(lines), True, YELLOW),    (sx + 65, 122))
 
-    # Speed tier + optional multiplier badge
-    surf.blit(_font(12).render("SPEED", True, BORDER_COLOR), (sx, 150))
-    surf.blit(_font(17).render(f"T{speed_tier}", True, YELLOW), (sx, 164))
+    # Combo streak indicator (always shown; bright cyan when active)
+    combo_col = (80, 220, 255) if combo >= 2 else tuple(max(c - 110, 0) for c in BORDER_COLOR)
+    combo_str = f"COMBO  ×{combo}" if combo >= 2 else "COMBO"
+    surf.blit(_font(11).render(combo_str, True, combo_col), (sx, 142))
+
+    # Speed tier + optional multiplier badge (shifted down 18px)
+    surf.blit(_font(12).render("SPEED", True, BORDER_COLOR), (sx, 168))
+    surf.blit(_font(17).render(f"T{speed_tier}", True, YELLOW), (sx, 182))
     if reset_bonus_mult > 1.005:
         surf.blit(_font(12).render(f"×{reset_bonus_mult:.1f}", True, (255, 200, 50)),
-                  (sx + 48, 167))
+                  (sx + 48, 185))
 
     # Countdown to next speed reset / cascade mode toggle
-    surf.blit(_font(12).render("FULL CASCADE IN", True, BORDER_COLOR), (sx, 191))
+    surf.blit(_font(12).render("FULL CASCADE IN", True, BORDER_COLOR), (sx, 207))
     pts_left = max(0, next_speed_reset - score)
     if pts_left > 2000:
         rst_col = (100, 255, 100)
@@ -423,7 +433,7 @@ def draw_sidebar(surf: pygame.Surface, score: int, lines: int,
         rst_col = (255, 200, 50)
     else:
         rst_col = (255, 80, 80)
-    surf.blit(_font(14).render(f"{pts_left:,} pts", True, rst_col), (sx, 204))
+    surf.blit(_font(14).render(f"{pts_left:,} pts", True, rst_col), (sx, 220))
 
     box_w  = SIDEBAR_WIDTH - 16
     box_x  = sx - 4
@@ -431,7 +441,7 @@ def draw_sidebar(surf: pygame.Surface, score: int, lines: int,
     tiny   = 10               # px per cell for pieces 2-5
 
     # ── NEXT label + 5-piece preview box ─────────────────────────────────────
-    NEXT_Y     = 238
+    NEXT_Y     = 242
     NEXT_BOX_Y = NEXT_Y + 20
     P1_H       = 72           # height of the top (piece-1) section
     MINI_H     = 78           # height of the 2×2 grid section
@@ -530,30 +540,50 @@ def draw_sidebar(surf: pygame.Surface, score: int, lines: int,
 
 # ── game-over overlay ─────────────────────────────────────────────────────────
 
-def draw_game_over_overlay(surf: pygame.Surface, score: int) -> None:
-    ov = pygame.Surface((BOARD_WIDTH, 120), pygame.SRCALPHA)
-    ov.fill((0, 0, 0, 200))
-    surf.blit(ov, (0, BOARD_HEIGHT // 2 - 40))
+def draw_game_over_overlay(surf: pygame.Surface, score: int,
+                           stat_pieces: int = 0, stat_tetrises: int = 0,
+                           stat_tspins: int = 0, stat_combo: int = 0,
+                           stat_time: float = 0.0) -> None:
+    ov = pygame.Surface((BOARD_WIDTH, 220), pygame.SRCALPHA)
+    ov.fill((0, 0, 0, 210))
+    surf.blit(ov, (0, BOARD_HEIGHT // 2 - 50))
     cx = BOARD_WIDTH // 2
 
     t = _font(26).render("GAME OVER", True, (255, 60, 60))
-    surf.blit(t, (cx - t.get_width() // 2, BOARD_HEIGHT // 2 - 32))
+    surf.blit(t, (cx - t.get_width() // 2, BOARD_HEIGHT // 2 - 44))
 
     t = _font(17).render(f"SCORE  {str(score).zfill(7)}", True, YELLOW)
-    surf.blit(t, (cx - t.get_width() // 2, BOARD_HEIGHT // 2 + 4))
+    surf.blit(t, (cx - t.get_width() // 2, BOARD_HEIGHT // 2 - 8))
 
-    for i, hint in enumerate(["R = restart",
-                               "SPACE / ESC = menu",
+    # Stats block
+    mins, secs = divmod(int(stat_time), 60)
+    time_str   = f"{mins}:{secs:02d}"
+    stats = [
+        ("TIME",     time_str),
+        ("PIECES",   str(stat_pieces)),
+        ("TETRISES", str(stat_tetrises)),
+        ("T-SPINS",  str(stat_tspins)),
+        ("BEST COMBO", f"×{stat_combo}"),
+    ]
+    sy = BOARD_HEIGHT // 2 + 18
+    for label, val in stats:
+        tl = _font(11, bold=False).render(label, True, BORDER_COLOR)
+        tv = _font(12).render(val, True, (200, 220, 255))
+        surf.blit(tl, (cx - 70, sy))
+        surf.blit(tv, (cx + 20, sy))
+        sy += 16
+
+    for i, hint in enumerate(["SPACE / ESC = menu",
                                "L = leaderboard"]):
-        t = _font(13, bold=False).render(hint, True, BORDER_COLOR)
-        surf.blit(t, (cx - t.get_width() // 2, BOARD_HEIGHT // 2 + 36 + i * 16))
+        t = _font(12, bold=False).render(hint, True, BORDER_COLOR)
+        surf.blit(t, (cx - t.get_width() // 2, sy + 6 + i * 15))
 
 
 # ── settings ─────────────────────────────────────────────────────────────────
 
 def draw_settings(surf: pygame.Surface, music_vol: int, sfx_vol: int,
                   settings_row: int, muted: bool, scale: float,
-                  ghost_opacity: int = 25) -> None:
+                  ghost_opacity: int = 25, das_preset: str = "normal") -> None:
     surf.fill(BG_COLOR)
     cx = SCREEN_WIDTH // 2
 
@@ -603,17 +633,38 @@ def draw_settings(surf: pygame.Surface, music_vol: int, sfx_vol: int,
         surf.blit(_font(11, bold=False).render("full solid tile", True, BORDER_COLOR),
                   (60, 336))
 
+    # ── input speed (DAS / ARR preset) ─────────────────────────────────────────
+    das_col = YELLOW if settings_row == 4 else BORDER_COLOR
+    surf.blit(_font(14, bold=False).render("INPUT SPEED  (DAS / ARR)", True, das_col),
+              (60, 348))
+    das_labels = {"slow": "Slow", "normal": "Normal", "fast": "Fast", "instant": "Instant"}
+    for i, key in enumerate(config.VALID_DAS_PRESETS):
+        active  = (key == das_preset)
+        box_col = YELLOW if (active and settings_row == 4) else (
+                  BORDER_COLOR if not active else (210, 210, 80))
+        bx = 60 + i * 98
+        pygame.draw.rect(surf, box_col, (bx, 370, 86, 22), 0 if active else 1)
+        tc  = BG_COLOR if active else box_col
+        lbl = das_labels[key]
+        surf.blit(_font(13).render(lbl, True, tc),
+                  (bx + 43 - _font(13).size(lbl)[0] // 2, 372))
+    if settings_row == 4:
+        d, r = config.DAS_SETTINGS[das_preset]
+        arr_str = "instant" if r == 0 else f"{r} ms"
+        surf.blit(_font(11, bold=False).render(
+            f"delay {d} ms  ·  repeat {arr_str}", True, YELLOW), (60, 398))
+
     # ── mute toggle ───────────────────────────────────────────────────────────
     mute_col = (255, 80, 80) if muted else (80, 220, 100)
     t = _font(15).render(f"M  —  MUSIC : {'MUTED' if muted else 'ON'}", True, mute_col)
-    surf.blit(t, (cx - t.get_width() // 2, 372))
+    surf.blit(t, (cx - t.get_width() // 2, 424))
 
-    pygame.draw.line(surf, BORDER_COLOR, (40, 400), (SCREEN_WIDTH - 40, 400), 1)
+    pygame.draw.line(surf, BORDER_COLOR, (40, 452), (SCREEN_WIDTH - 40, 452), 1)
     for i, hint in enumerate(["UP / DOWN  :  select row",
                                "LEFT / RIGHT  :  adjust",
                                "ENTER / ESC  :  back to menu"]):
         t = _font(13, bold=False).render(hint, True, BORDER_COLOR)
-        surf.blit(t, (cx - t.get_width() // 2, 414 + i * 20))
+        surf.blit(t, (cx - t.get_width() // 2, 466 + i * 20))
 
     pygame.draw.rect(surf, BORDER_COLOR, (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), 2)
 
@@ -1023,6 +1074,26 @@ def main():
     # full cascade animation
     cascade_anim_timer: int = 0
 
+    # color-clear detection: set in _do_lock when a cleared row is mono-color
+    color_clear_id: int | None = None
+
+    # level-up flash (sidebar level value briefly turns white)
+    level_up_flash_timer: int = 0
+
+    # per-game statistics (shown on game-over screen)
+    stat_pieces:   int   = 0
+    stat_tetrises: int   = 0
+    stat_tspins:   int   = 0
+    stat_combo:    int   = 0   # longest combo streak reached this game
+    stat_start_ms: int   = pygame.time.get_ticks()
+    stat_time:     float = 0.0   # seconds, set in _end_game
+
+    # DAS / ARR — loaded from config, adjustable in settings
+    _das_preset            = config.get_das_preset()
+    das_delay:  int = config.DAS_SETTINGS[_das_preset][0]
+    das_repeat: int = config.DAS_SETTINGS[_das_preset][1]
+    das_preset: str = _das_preset
+
     def _spawn_next():
         nonlocal current, piece_queue, lock_timer, lock_move_count, hold_used
         nonlocal last_action, next_flash_timer
@@ -1118,6 +1189,8 @@ def main():
         nonlocal speed_tier, next_speed_reset, speed_reset_count, reset_bonus_mult
         nonlocal full_cascade_mode, cascade_level, first_clear_tetris
         nonlocal speed_reset_flash_timer, danger_bonuses, score_deltas, next_flash_timer
+        nonlocal color_clear_id, level_up_flash_timer
+        nonlocal stat_pieces, stat_tetrises, stat_tspins, stat_combo, stat_start_ms, stat_time
         board, current, piece_queue, score, lines, level, fall_timer = new_game()
         hold_piece   = None
         hold_used    = False
@@ -1140,11 +1213,17 @@ def main():
         next_flash_timer = 0
         danger_bonuses = []
         score_deltas   = []
+        color_clear_id       = None
+        level_up_flash_timer = 0
+        stat_pieces  = stat_tetrises = stat_tspins = stat_combo = 0
+        stat_time    = 0.0
+        stat_start_ms = pygame.time.get_ticks()
         _reset_das()
         audio.play_spawn(current.color_id)
 
     def _end_game():
-        nonlocal state, initials, ini_cursor, post_anim_state
+        nonlocal state, initials, ini_cursor, post_anim_state, stat_time
+        stat_time = (pygame.time.get_ticks() - stat_start_ms) / 1000.0
         music.fadeout(1200)
         go_anim.reset()
         if highscore.qualifies(score):
@@ -1177,9 +1256,11 @@ def main():
         nonlocal clear_rows, clear_count, clear_timer, clear_flash_idx
         nonlocal clear_cells, wow_active, tspin_type, combo
         nonlocal score, cascade_level, first_clear_tetris
+        nonlocal color_clear_id, stat_pieces
         # Detect T-spin BEFORE placing — piece position + last_action must be current.
         tspin_type = _detect_tspin()
         board.place(current)
+        stat_pieces += 1
         audio.play('lock')
         _reset_das()
         lock_timer = lock_move_count = 0
@@ -1193,6 +1274,13 @@ def main():
                 all(c == 0 for c in board.grid[r])
                 for r in range(ROWS) if r not in full_set
             )
+            # Color-clear detection: any cleared row where all 10 cells share one color
+            color_clear_id = None
+            for row_i in full:
+                row_colors = set(board.grid[row_i][c] for c in range(COLS))
+                if len(row_colors) == 1:
+                    color_clear_id = next(iter(row_colors))
+                    break
             clear_rows      = full_set
             clear_count     = len(full)
             clear_timer     = 0
@@ -1350,6 +1438,7 @@ def main():
                 elif event.key == pygame.K_DOWN:
                     if board.is_valid(current, dy=1):
                         current.y += 1
+                        score      += 1   # +1 per row soft-dropped
                         last_action = 'soft_drop'
                         lock_timer  = 0
                 elif event.key == pygame.K_UP:
@@ -1370,8 +1459,10 @@ def main():
                 elif event.key == pygame.K_SPACE:
                     # Hard drop: instant commitment — no lock delay.
                     hd_flash_timer = HD_FLASH_DURATION
+                    _hd_start_y = current.y
                     while board.is_valid(current, dy=1):
                         current.y += 1
+                    score += (current.y - _hd_start_y) * 2   # +2 per row hard-dropped
                     last_action = 'hard_drop'
                     audio.play('hard_drop')
                     fall_timer  = 0
@@ -1481,9 +1572,9 @@ def main():
                     else:
                         state = MENU
                 elif event.key == pygame.K_UP:
-                    settings_row = (settings_row - 1) % 4
+                    settings_row = (settings_row - 1) % 5
                 elif event.key == pygame.K_DOWN:
-                    settings_row = (settings_row + 1) % 4
+                    settings_row = (settings_row + 1) % 5
                 elif event.key in (pygame.K_LEFT, pygame.K_RIGHT):
                     delta = -5 if event.key == pygame.K_LEFT else 5
                     if settings_row == 0:
@@ -1504,20 +1595,28 @@ def main():
                             current_scale = new_scale
                             config.set_scale(current_scale)
                             display = _make_display(current_scale)
-                    else:   # row 3 — ghost opacity
+                    elif settings_row == 3:
                         ghost_opacity_pct = max(0, min(100, ghost_opacity_pct + delta))
                         config.set_ghost_opacity(ghost_opacity_pct)
+                    else:   # row 4 — DAS / ARR preset
+                        presets = config.VALID_DAS_PRESETS
+                        idx = presets.index(das_preset) if das_preset in presets else 1
+                        idx = max(0, min(len(presets) - 1,
+                                        idx + (1 if event.key == pygame.K_RIGHT else -1)))
+                        das_preset  = presets[idx]
+                        das_delay, das_repeat = config.DAS_SETTINGS[das_preset]
+                        config.set_das_preset(das_preset)
 
         # ── DAS auto-repeat ───────────────────────────────────────────────────
         if state == PLAYING and das_dir != 0:
             das_timer += dt
             if not das_charged:
-                if das_timer >= DAS_DELAY:
+                if das_timer >= das_delay:
                     das_charged = True
                     das_timer   = 0
             else:
-                while das_timer >= DAS_REPEAT:
-                    das_timer -= DAS_REPEAT
+                if das_repeat == 0:
+                    # Instant ARR — one move per frame while key held
                     if board.is_valid(current, dx=das_dir):
                         current.x += das_dir
                         last_action = 'move'
@@ -1526,6 +1625,17 @@ def main():
                         if level >= GRAVITY_20G_LEVEL:
                             while board.is_valid(current, dy=1):
                                 current.y += 1
+                else:
+                    while das_timer >= das_repeat:
+                        das_timer -= das_repeat
+                        if board.is_valid(current, dx=das_dir):
+                            current.x += das_dir
+                            last_action = 'move'
+                            audio.play('move')
+                            _reset_lock()
+                            if level >= GRAVITY_20G_LEVEL:
+                                while board.is_valid(current, dy=1):
+                                    current.y += 1
 
         # ── danger detection → tier-1 tension music + warning line ──────────
         # Row indices 0-9 are the top half of the board.  Any filled cell there
@@ -1642,6 +1752,13 @@ def main():
                             'max_timer': 1400,
                         })
                     combo += 1
+                    stat_combo = max(stat_combo, combo)
+
+                    # Stats: count Tetrises and T-spins
+                    if clear_count == 4:
+                        stat_tetrises += 1
+                    if is_tspin:
+                        stat_tspins += 1
 
                     if wow_active:
                         score += WOW_BONUS * (level + 1)
@@ -1667,6 +1784,7 @@ def main():
                     level     = lines // 10 + 1
                     if level > old_level:
                         speed_tier = min(speed_tier + (level - old_level), 20)
+                        level_up_flash_timer = 700   # sidebar level value flashes white
                         if old_level < GRAVITY_20G_LEVEL <= level:
                             popup_count = 14
                             popup_timer = int(POPUP_DURATION * 1.5)
@@ -1692,8 +1810,19 @@ def main():
                     if cascade_level == 0:
                         first_clear_tetris = (clear_count == 4)
 
-                    # ── clear lines, then settle floating blocks ───────────────
+                    # ── clear lines ───────────────────────────────────────────
                     board.clear_lines()
+
+                    # ── color clear: blast every remaining cell of that color ──
+                    _had_color_clear = False
+                    if color_clear_id is not None:
+                        cc_removed = board.remove_color(color_clear_id)
+                        color_clear_id = None
+                        if cc_removed:
+                            particles      += spawn_particles(cc_removed, 4)
+                            score          += COLOR_CLEAR_BONUS
+                            best            = max(best, score)
+                            _had_color_clear = True
 
                     # ── visual feedback for THIS clear pass ───────────────────
                     big_clear = (wow_active or clear_count == 4
@@ -1704,11 +1833,14 @@ def main():
                         shake_timer = SHAKE_DURATION
 
                     # ── popup selection ───────────────────────────────────────
-                    # Priority: WOW > T×T > T-spin/B2B > cascade level > normal
+                    # Priority: WOW > COLOR CLEAR > T×T > T-spin/B2B > cascade > normal
                     if wow_active:
                         popup_count = 0
                         popup_timer = WOW_POPUP_DURATION
                         wow_active  = False
+                    elif _had_color_clear:
+                        popup_count = 15
+                        popup_timer = WOW_POPUP_DURATION
                     elif tetris_x_tetris:
                         popup_count = 13   # "TETRIS×TETRIS!" — board-centred
                         popup_timer = WOW_POPUP_DURATION
@@ -1854,6 +1986,7 @@ def main():
         shake_timer          = max(0, shake_timer           - dt)
         speed_reset_flash_timer = max(0, speed_reset_flash_timer - dt)
         next_flash_timer     = max(0, next_flash_timer      - dt)
+        level_up_flash_timer = max(0, level_up_flash_timer  - dt)
 
         # Advance danger-bonus ×2 floating labels (float upward, count down).
         s = dt / 1000.0
@@ -1956,7 +2089,9 @@ def main():
                 bsurf.blit(cas_t, (cx, cy))
 
             elif state == GAME_OVER:
-                draw_game_over_overlay(bsurf, score)
+                draw_game_over_overlay(bsurf, score,
+                                       stat_pieces, stat_tetrises, stat_tspins,
+                                       stat_combo, stat_time)
             elif state == GAME_OVER_ANIM:
                 go_anim.draw(bsurf)
 
@@ -1975,7 +2110,8 @@ def main():
                          reset_bonus_mult, full_cascade_mode,
                          palette_phase,
                          popup_count, popup_timer,
-                         next_flash_timer, hold_piece is not None)
+                         next_flash_timer, hold_piece is not None,
+                         combo, level_up_flash_timer)
             pygame.draw.rect(screen, BORDER_COLOR,
                              (0, 0, BOARD_WIDTH, BOARD_HEIGHT), 1)
             pygame.draw.line(screen, BORDER_COLOR,
@@ -1994,7 +2130,7 @@ def main():
         elif state == SETTINGS:
             draw_settings(screen, music_vol_pct, sfx_vol_pct,
                           settings_row, music.is_muted(), current_scale,
-                          ghost_opacity_pct)
+                          ghost_opacity_pct, das_preset)
 
         elif state == MUSIC_TEST:
             draw_music_test(screen, music_test_tier)

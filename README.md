@@ -78,7 +78,9 @@ persisted across sessions in `config.json`. Ghost-piece opacity is also persiste
 - **Board-centred popups** — all clear feedback (Nice! → Great! → Fantastic! → TETRIS! → T-SPIN! → etc.) floats up from the play area, not the sidebar
 - **Scaled particle explosions** — burst intensity grows with row count (1→2→3→4 lines)
 - **Cascade gravity** — floating blocks settle after every line clear; Full Board Cascade mode (animated domino wave + cascade scoring) toggles on at each speed reset
+- **Color Clear** — when a cleared row is all the same color, every remaining cell of that color on the board explodes in a cascade. Rainbow "COLOR CLEAR!" popup + +5,000 bonus
 - **Speed reset** — fall speed resets to tier 1 each time the threshold is crossed; threshold starts at 10,000 pts and grows by 5,000 per reset; score multiplier increases +0.1×; "FULL CASCADE IN N pts" countdown in sidebar
+- **Post-game stats** — GAME OVER screen shows time played, pieces placed, Tetrises, T-spins, best combo
 - **Palette shift** — tiles darken 10 % every 10 levels, cycling through 6 phases
 - **Placement score** — +10 pts per piece placed
 - **HOLD box glow** — slow cyan pulse when a piece is queued so you never forget it's there
@@ -197,6 +199,18 @@ python3 main.py
 | SFX Volume | 0 – 100 % | 100 % | Live preview on adjust |
 | Display Scale | 1× / 1.5× / 2× / 2.5× | 1.5× | Persisted to `config.json` |
 | Ghost Opacity | 0 – 100 % | 15 % | 0 % disables shadow entirely; 100 % looks like a solid tile |
+| Input Speed | Slow / Normal / Fast / Instant | Normal | DAS delay + ARR repeat rate; persisted to `config.json` |
+
+---
+
+## Running tests
+
+```bash
+pip install pytest
+python3 -m pytest tests/ -v
+```
+
+42 tests covering board logic (collision, clearing, cascade gravity, color removal) and scoring constants.
 
 ---
 
@@ -214,7 +228,8 @@ music.py          standalone 32-bar chiptune composition (menu music)
 particles.py      particle burst system for line clears
 game_over_anim.py per-block physics animation for the GAME OVER sequence
 highscore.py      JSON-backed top-10 persistence
-config.py         settings persistence (scale, ghost opacity → config.json)
+config.py         settings persistence (scale, ghost opacity, DAS preset → config.json)
+tests/            pytest unit tests — board logic and scoring (42 tests)
 ```
 
 ---

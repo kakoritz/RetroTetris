@@ -3,9 +3,18 @@ from pathlib import Path
 
 _FILE = Path(__file__).parent / "config.json"
 
-_DEFAULTS = {"scale": 1.5, "ghost_opacity": 15}
+_DEFAULTS = {"scale": 1.5, "ghost_opacity": 15, "das_preset": "normal"}
 
 VALID_SCALES = [1.0, 1.5, 2.0, 2.5]
+
+VALID_DAS_PRESETS = ["slow", "normal", "fast", "instant"]
+# (delay_ms, repeat_ms) per preset
+DAS_SETTINGS = {
+    "slow":    (250, 100),
+    "normal":  (170,  50),
+    "fast":    (120,  30),
+    "instant": (100,   0),
+}
 
 
 def load() -> dict:
@@ -50,4 +59,14 @@ def get_ghost_opacity() -> int:
 def set_ghost_opacity(pct: int) -> None:
     data = load()
     data["ghost_opacity"] = max(0, min(100, int(pct)))
+    save(data)
+
+
+def get_das_preset() -> str:
+    return load().get("das_preset", "normal")
+
+
+def set_das_preset(preset: str) -> None:
+    data = load()
+    data["das_preset"] = preset if preset in VALID_DAS_PRESETS else "normal"
     save(data)

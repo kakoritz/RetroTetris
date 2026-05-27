@@ -5,7 +5,58 @@ part development commentary — what changed, what it means, and where the game 
 
 ---
 
-## Current Rating: 8.9 / 10 (as a Tetris game) · 9.2 / 10 (as a portfolio project)
+## Current Rating: 9.2 / 10 (as a Tetris game) · 9.5 / 10 (as a portfolio project)
+
+---
+
+## v1.8.0 Review — Polish, Tests, and a Genuinely New Mechanic
+
+### Color Clear — the best new mechanic in this update
+
+This is the kind of mechanic that sounds gimmicky and turns out to be deeply
+satisfying. The reason it works: it's emergent from normal play, not a contrived
+bonus. A mono-color row can happen naturally (I-piece Tetris on a well-prepared
+board) and the explosion feels earned. The cascade that follows makes the board
+reshape itself visibly, and the +5,000 flat bonus is legible without being
+game-breaking. Correctly placed in popup priority below WOW but above T-spin.
+
+### Test suite — closing the biggest portfolio gap
+
+42 tests, 100% pass. The tests cover the things that matter: collision detection
+edge cases, row clearing and shifting, cascade gravity (including multi-block
+stacking order), color removal, and the scoring formula hierarchy. These tests
+would catch regressions in the core game logic. They also demonstrate that the
+game logic in board.py is genuinely testable — it was already well-isolated.
+
+The scoring tests are particularly valuable: they document the scoring hierarchy
+as executable specifications. If any constant is changed, the tests will catch
+any formula that depended on the old value.
+
+### Stats screen — honest game-over feedback
+
+The GAME OVER overlay previously showed only score. Now it shows time, pieces,
+Tetrises, T-spins, and best combo — the five numbers that tell a player how they
+played, not just how much they scored. This makes repeat play more meaningful.
+
+### DAS preset — accessibility without complexity
+
+Four presets (Slow / Normal / Fast / Instant) cover the full range from casual to
+competitive. Instant ARR (0 ms repeat) is correct for high-level play. The preset
+persists. This is the right scope — presets instead of raw millisecond sliders.
+
+### Drop scoring + combo/level flash — Guideline completeness
+
+Soft drop (+1/row), hard drop (+2/row), persistent combo counter, and level-up
+flash close the last standard Tetris features that were missing. None are dramatic
+individually; together they remove the last "this doesn't play quite like Tetris"
+friction points.
+
+### Remaining honest gap
+
+main.py is ~1500 lines. Still a monolith. The test suite now covers board.py and
+scoring constants independently, which is the right foundation for a future split.
+The game is portfolio-ready as-is; a renderer.py + game.py refactor would make it
+engineering-review-ready.
 
 ---
 

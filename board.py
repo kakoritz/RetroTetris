@@ -106,3 +106,16 @@ class Board:
         while self.apply_block_gravity():
             moved_any = True
         return moved_any
+
+    def remove_color(self, color_id: int) -> list:
+        """Remove every cell of color_id from the board.
+
+        Returns a list of (col, row, color_id) tuples for particle spawning.
+        """
+        removed = []
+        for row in range(ROWS):
+            for col in range(COLS):
+                if self.grid[row][col] == color_id:
+                    removed.append((col, row, color_id))
+                    self.grid[row][col] = 0
+        return removed

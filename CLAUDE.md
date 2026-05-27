@@ -63,6 +63,7 @@ particles.py      particle burst system (intensity 1–4)
 game_over_anim.py per-block physics for GAME OVER sequence
 highscore.py      JSON top-10 persistence
 config.py         settings persistence (config.json)
+tests/            pytest unit tests (42 tests, board + scoring)
 ```
 
 ## Code Style
