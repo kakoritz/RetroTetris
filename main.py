@@ -24,6 +24,7 @@ from constants import (
 from board import Board
 from piece import Piece
 from sprites import get_block, get_ghost
+import rotation
 from game_constants import (
     DAS_DELAY, DAS_REPEAT,
     LOCK_DELAY, LOCK_MAX_MOVES,
@@ -41,7 +42,6 @@ from game_constants import (
     CASCADE_STEP_MS, CASCADE_BONUS_PER_RESET,
     POPUP_DURATION, SHAKE_DURATION, SHAKE_INTENSITY, HD_FLASH_DURATION,
     POPUP_STYLES,
-    _TSPIN_POINT, _KICKS_JLSZT, _KICKS_I,
 )
 
 
@@ -111,29 +111,6 @@ def _font(size: int, bold: bool = True) -> pygame.font.Font:
     if key not in _font_cache:
         _font_cache[key] = pygame.font.SysFont("monospace", size, bold=bold)
     return _font_cache[key]
-
-
-def _try_rotate(board: Board, piece: Piece,
-                new_shape: list, new_state: int) -> bool:
-    """Attempt rotation with full SRS wall kicks.
-
-    Tries each kick offset for the given state transition in order.
-    On the first valid position the piece is updated and True is returned.
-    """
-    key   = (piece.rot_state, new_state)
-    table = _KICKS_I if piece.type == 'I' else _KICKS_JLSZT
-    # O-piece rotation is a no-op visually; skip kicks entirely.
-    kicks = table.get(key, [(0, 0)]) if piece.type != 'O' else [(0, 0)]
-
-    for dx, dy in kicks:
-        if board.is_valid(piece, dx=dx, dy=dy, shape=new_shape):
-            piece.x        += dx
-            piece.y        += dy
-            piece.shape     = new_shape
-            piece.rot_state = new_state
-            audio.play('rotate')
-            return True
-    return False
 
 
 # ── board / piece drawing ─────────────────────────────────────────────────────
@@ -1042,35 +1019,6 @@ def main():
         last_action = 'gravity'
         audio.play_spawn(current.color_id)
 
-    def _detect_tspin() -> str | None:
-        """Return 'full', 'mini', or None based on T-spin corner rule.
-
-        A T-spin requires the last action to be a rotation and the piece to be
-        the T-piece.  Full T-spin: 3+ of the 4 corners of the 3×3 bounding box
-        are occupied (wall or stack).  Mini: exactly 2 corners occupied, and
-        both are on the "point side" of the T (the side the bump faces).
-        """
-        if current.type != 'T' or last_action != 'rotate':
-            return None
-        px, py = current.x, current.y
-        # Corner positions of the fixed 3×3 bounding box: TL, TR, BL, BR
-        corners = [(px, py), (px+2, py), (px, py+2), (px+2, py+2)]
-
-        def _blocked(cx: int, cy: int) -> bool:
-            return (cx < 0 or cx >= COLS or cy >= ROWS
-                    or (cy >= 0 and board.grid[cy][cx] != 0))
-
-        flags = [_blocked(cx, cy) for cx, cy in corners]
-        n     = sum(flags)
-
-        if n >= 3:
-            return 'full'
-        if n == 2:
-            pi, pj = _TSPIN_POINT[current.rot_state]
-            if flags[pi] and flags[pj]:
-                return 'mini'
-        return None
-
     def _start_new_game():
         nonlocal board, current, piece_queue, score, lines, level, fall_timer
         nonlocal hold_piece, hold_used, lock_timer, lock_move_count
@@ -1148,7 +1096,7 @@ def main():
         nonlocal score, cascade_level, first_clear_tetris
         nonlocal color_clear_id, stat_pieces
         # Detect T-spin BEFORE placing — piece position + last_action must be current.
-        tspin_type = _detect_tspin()
+        tspin_type = rotation.detect_tspin(board, current, last_action)
         board.place(current)
         stat_pieces += 1
         audio.play('lock')
@@ -1333,15 +1281,15 @@ def main():
                         lock_timer  = 0
                 elif event.key == pygame.K_UP:
                     if event.mod & pygame.KMOD_CTRL:
-                        if _try_rotate(board, current, *current.rotated_ccw()):
+                        if rotation.try_rotate(board, current, *current.rotated_ccw()):
                             last_action = 'rotate'
                             _reset_lock()
                     else:
-                        if _try_rotate(board, current, *current.rotated_cw()):
+                        if rotation.try_rotate(board, current, *current.rotated_cw()):
                             last_action = 'rotate'
                             _reset_lock()
                 elif event.key == pygame.K_z:
-                    if _try_rotate(board, current, *current.rotated_ccw()):
+                    if rotation.try_rotate(board, current, *current.rotated_ccw()):
                         last_action = 'rotate'
                         _reset_lock()
                 elif event.key == pygame.K_c:
