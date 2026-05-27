@@ -5,7 +5,58 @@ part development commentary — what changed, what it means, and where the game 
 
 ---
 
-## Current Rating: 9.2 / 10 (as a Tetris game) · 9.8 / 10 (as a portfolio project)
+## Current Rating: 9.2 / 10 (as a Tetris game) · 9.9 / 10 (as a portfolio project)
+
+---
+
+## v1.9.1 Review — Production Hardening
+
+### Crash handler — the right kind of defensive code
+
+`crash_handler.py` is minimal and correct. It intercepts unhandled exceptions without
+touching `SystemExit` or `KeyboardInterrupt` (both legitimate exit paths), writes two
+log files (one timestamped for archiving, one `crash_latest.log` for instant access),
+and opens a pygame crash window that survives even a display-corrupted crash by calling
+`pygame.display.quit()` before creating the new window. The window code is wrapped in
+try/except with `pygame.quit()` in `finally` — if the crash window itself fails, the
+process still exits cleanly with code 1. This is the correct level of defensive depth
+for a crash reporter.
+
+The `run_with_crash_handler(fn)` wrapper at the bottom of `main.py` is the right
+architectural choice — the crash boundary is at the entry point, not scattered through
+the game loop.
+
+### Admin debug sequence — verification without ceremony
+
+The `b`→`u`→`g` sequence follows the same accumulator pattern as the existing 3-2-1
+board-clear cheat. It exercises the real crash path — not a mock, not a side-channel —
+so every component of the crash pipeline is confirmed working: log write, log path,
+crash window rendering. The implementation is six lines of logic in `input_handler.py`
+and one field in `AppState`. Low cost, high confidence.
+
+### 72 tests — from coverage to contract
+
+The jump from 42 to 72 tests is qualitative, not just quantitative. The 30 new tests in
+`test_game_logic.py` cover the extracted `game_logic.py` functions as integration tests —
+they use real `GameState`/`AppState` objects and mock only the side effects (audio, music,
+highscore). They would catch the exact class of bug that caused the live `do_lock`
+NameError: a broken import or missing function in the extracted module. The tests now
+document the module boundaries, not just the board rules.
+
+### CI/CD — portfolio-grade process signal
+
+A GitHub Actions pipeline that runs headlessly (SDL dummy drivers), blocks merges on red,
+and auto-opens PRs is a signal that this project is maintained like professional software.
+The `auto-pr` job is a small but effective touch for a solo project: the PR exists as
+protocol and audit trail, not as a collaboration mechanism. The branch protection on
+`main` enforces the workflow even under time pressure.
+
+### Portfolio rating: 9.8 → 9.9
+
+The crash handler, test suite depth, and CI pipeline close the last gap between "impressive
+game project" and "production-minded engineering." The only remaining gap is the
+CLEARING-state scoring block (~100 lines) still inline in `main.py` — the natural
+candidate for a future `clear_logic.py` or `GameState` method.
 
 ---
 
@@ -632,8 +683,7 @@ legible. This requires a new SETTLING state or a frame-by-frame update loop.
 
 ### Refinements remaining
 - Persistent combo streak display in sidebar (floating label is brief; a number in the sidebar would persist)
-- Split main.py into renderer.py + game.py (architecture concern)
-- Unit tests for board logic, scoring, collision (no tests exist)
+- CLEARING-state scoring block (~100 lines) still inline in `main.py` — natural candidate for `clear_logic.py` or a `GameState` method
 
 ### Architectural quality
 The codebase is clean. State machine with explicit string constants, no implicit
@@ -653,4 +703,4 @@ That instinct is what separates a finished game from a demo.
 
 ---
 
-*Last updated: 2026-05-27 · v1.6.0*
+*Last updated: 2026-05-27 · v1.9.1*

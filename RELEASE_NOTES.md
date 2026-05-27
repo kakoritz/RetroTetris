@@ -2,6 +2,31 @@
 
 ---
 
+## v1.9.1 — Crash Handler, Debug Sequence, Expanded Tests, CI/CD
+*2026-05-27*
+
+### Added
+- **Crash handler** (`crash_handler.py`) — any unhandled exception writes two log files
+  (`crash_YYYYMMDD_HHMMSS.log` + `crash_latest.log`) alongside `main.py`, prints the full
+  traceback to stderr, and opens a pygame crash window showing the error message and log
+  path. Game exits cleanly with code 1.
+- **Admin debug crash sequence** — typing `b`→`u`→`g` during gameplay deliberately raises
+  a `RuntimeError` through the crash handler, exercising the full pipeline (log write +
+  crash window) without requiring a real crash. Sequence tracker lives in `AppState._debug_seq`.
+- **Expanded test suite** — 30 integration tests added in `tests/test_game_logic.py`
+  covering `spawn_next`, `do_hold`, `start_new_game`, `end_game`, `reset_lock`, `do_lock`,
+  and `debug_clear_board`. Total: **72 passing tests**.
+- **GitHub Actions CI** (`.github/workflows/ci.yml`) — runs `pytest tests/ -q` headlessly
+  (SDL dummy drivers) on every push to `development` and on every PR targeting `main`.
+  After a green CI run a second job auto-opens a `development → main` PR if none exists.
+- **Development branch workflow** — all work targets the `development` branch. `main` is
+  protected; direct pushes are blocked and PRs require CI to pass before merge.
+
+### Changed
+- `crash_*.log` and `crash_latest.log` added to `.gitignore`.
+
+---
+
 ## v1.9.0 — Multi-Module Architecture Refactor
 *2026-05-27*
 
@@ -25,7 +50,7 @@
   now standalone functions taking explicit `(gs, app)` parameters.
 - **`input_handler.py`** — full pygame event dispatch and DAS auto-repeat in a single
   `handle_input(gs, app, dt)` call. Owns `MUSIC_END` and `INITIALS_CHARS` constants.
-- Test suite unchanged: 42/42 tests pass throughout the refactor.
+- Test suite: 42/42 tests pass throughout the refactor.
 
 ---
 

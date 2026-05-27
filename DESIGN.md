@@ -283,6 +283,7 @@ boundaries:
 | `game_logic.py` | spawn_next, do_hold, start_new_game, end_game, do_lock, etc. | game_state, app_state, rotation, audio, highscore, music |
 | `input_handler.py` | Event dispatch + DAS auto-repeat (`handle_input`) | game_state, app_state, game_logic, rotation, audio, config, music, music_game |
 | `renderer.py` | All draw_* functions, font cache, rendering constants | constants, board, piece, sprites, game_constants |
+| `crash_handler.py` | Unhandled exception logger + pygame crash window | stdlib only (sys, os, traceback, datetime, pygame) |
 | `main.py` | Bootstrap + frame body (gravity, clearing, cascading, draw) | everything above |
 
 ### Dependency rule
@@ -299,7 +300,74 @@ can be replaced without touching game logic.
 
 ---
 
-## 8. Technical & Distribution Requirements
+## 8. Error Handling & Crash Reporting
+
+### 8.1 Crash handler
+
+Any unhandled exception is caught by `crash_handler.run_with_crash_handler()`, which
+wraps `main()` at the bottom of `main.py`. On exception:
+
+1. Full traceback printed to stderr (terminal output preserved)
+2. Two log files written alongside `main.py`:
+   - `crash_YYYYMMDD_HHMMSS.log` — timestamped, never overwritten
+   - `crash_latest.log` — always the most recent crash, easy to locate
+3. A pygame crash window opens (640×420) showing the error and the log path. The window
+   waits for a keypress or close before exiting.
+4. Process exits with code 1.
+
+`SystemExit` and `KeyboardInterrupt` are re-raised without interception — these are
+normal exit paths and must not be treated as errors.
+
+The crash window resets the pygame display before opening so it works even if the game
+left the display in a bad state. All window code is wrapped in a try/except with
+`pygame.quit()` in `finally` — the window is best-effort and must not itself crash.
+
+### 8.2 Admin debug crash sequence
+
+Typing `b`→`u`→`g` during gameplay triggers a deliberate `RuntimeError` through the
+crash handler. The sequence is tracked in `AppState._debug_seq` using the same
+accumulator pattern as the 3-2-1 board-clear cheat. Purpose: verify the log files are
+written and the crash window renders correctly without waiting for a real error.
+
+The sequence is intentionally undocumented in-game.
+
+---
+
+## 9. Development Workflow
+
+### 9.1 Branching model
+
+All development targets the `development` branch. `main` is the release branch and is
+protected — direct pushes are blocked. The only path to `main` is through a pull request
+with CI passing.
+
+```
+development  →  (CI green)  →  PR  →  main
+```
+
+### 9.2 Continuous integration
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push to `development` and on
+every PR targeting `main`. The CI job:
+
+- Installs Python 3.12, pygame, numpy, pytest
+- Sets `SDL_VIDEODRIVER=dummy` and `SDL_AUDIODRIVER=dummy` so pygame initialises
+  headlessly without a display server
+- Runs `python -m pytest tests/ -q`
+
+A second job (`auto-pr`) fires after CI passes on a push to `development`. It opens a
+`development → main` PR automatically if none is already open. This keeps the PR queue
+current without requiring a manual step.
+
+### 9.3 Release protocol
+
+Before opening a PR to `main`, all five documents must be committed to `development`:
+`RELEASE_NOTES.md`, `README.md`, `DESIGN.md`, `CLAUDE_REVIEW.md`, `CLAUDE.md`. The PR
+arrives at `main` already complete — merging is the only action required.
+
+---
+
+## 10. Technical & Distribution Requirements
 
 ### 7.1 Code quality
 
