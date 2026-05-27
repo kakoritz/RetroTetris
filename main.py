@@ -294,7 +294,7 @@ def draw_game_over_overlay(surf: pygame.Surface, score: int) -> None:
     surf.blit(t, (cx - t.get_width() // 2, BOARD_HEIGHT // 2 + 4))
 
     for i, hint in enumerate(["R = restart",
-                               "ESC = menu",
+                               "SPACE / ESC = menu",
                                "L = leaderboard"]):
         t = _font(13, bold=False).render(hint, True, BORDER_COLOR)
         surf.blit(t, (cx - t.get_width() // 2, BOARD_HEIGHT // 2 + 36 + i * 16))
@@ -506,7 +506,7 @@ def draw_menu(surf: pygame.Surface, blink_on: bool) -> None:
         _draw_mini_piece(surf, SHAPES[pt], slot_w * i + slot_w // 2, 218, 16)
 
     if blink_on:
-        t = _font(17).render("PRESS  ENTER  TO  START", True, WHITE)
+        t = _font(17).render("PRESS  SPACE  TO  START", True, WHITE)
         surf.blit(t, (cx - t.get_width() // 2, 288))
 
     for i, line in enumerate(["<  >  move       ^ rotate CW",
@@ -742,7 +742,7 @@ def main():
 
             # ── MENU ──────────────────────────────────────────────────────────
             if state == MENU:
-                if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                if event.key in (pygame.K_SPACE, pygame.K_RETURN, pygame.K_KP_ENTER):
                     board, current, next_piece, score, lines, level, fall_timer = new_game()
                     best  = highscore.best()
                     popup_count = popup_timer = 0
@@ -838,7 +838,7 @@ def main():
                     music_game.stop()
                     music_game.start_sequence()
                     state = PLAYING
-                elif event.key == pygame.K_ESCAPE:
+                elif event.key in (pygame.K_SPACE, pygame.K_ESCAPE):
                     music_game.stop()
                     music.start_menu()
                     state = MENU

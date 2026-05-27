@@ -85,7 +85,7 @@ python3 main.py
 ### Menu
 | Key | Action |
 |-----|--------|
-| `Enter` | Start game |
+| `Space` | Start game |
 | `T` | Music Preview |
 | `S` | Settings |
 | `H` | Leaderboard |
