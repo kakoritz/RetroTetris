@@ -1,3 +1,14 @@
+"""
+particles.py — particle burst system for line-clear visual feedback.
+
+Each particle is a plain list (not a class, for raw speed):
+  [x, y, vx, vy, color_rgb, life, size]
+  x, y    — float pixel position
+  vx, vy  — float velocity in px/s (vy negative = upward)
+  color   — (r, g, b) tuple from COLORS
+  life    — float 1.0 → 0.0; particle dies when ≤ 0
+  size    — int pixel side length of the square sprite
+"""
 import random
 import pygame
 from constants import CELL_SIZE, COLORS

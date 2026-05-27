@@ -1,3 +1,11 @@
+"""
+constants.py — geometry, palette, tetromino shapes, and fall-speed curve.
+
+Imported by almost every module; has no project-level imports itself.
+Changing COLS, ROWS, or CELL_SIZE ripples through board, renderer, and all
+hit-test math — treat them as fixed for the lifetime of a run.
+"""
+
 COLS = 10
 ROWS = 20
 CELL_SIZE = 30
@@ -46,7 +54,8 @@ SHAPES = {
           [7, 7, 7]],
 }
 
-# NES-style fall speed per level (milliseconds per row)
+# NES-style fall speed: starts at 500 ms/row (level 1), drops 45 ms per level,
+# floors at 80 ms/row (~level 10). Speed tier, not game level, is passed here.
 def fall_speed(level: int) -> int:
     return max(80, 500 - (level - 1) * 45)
 

@@ -1,4 +1,13 @@
-# app_state.py — application-shell state, persists across game sessions
+"""
+app_state.py — application-shell state that persists across game sessions.
+
+AppState is constructed once in main() and never reset between games.
+It holds everything that belongs to the application shell rather than
+a single game: display surfaces, audio volumes, DAS config, leaderboard
+cache, animation handles, and the state-machine string constants.
+
+Contrast with game_state.GameState, which is reset on every new game.
+"""
 import pygame
 import config
 from game_over_anim import GameOverAnim

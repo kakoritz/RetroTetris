@@ -1,4 +1,12 @@
-# game_logic.py — standalone game-logic helpers (extracted from main.py closures)
+"""
+game_logic.py — standalone game-logic helpers.
+
+All functions take explicit (gs: GameState, app: AppState) parameters.
+They were originally closures with nonlocal access inside main(); extracting
+them here makes the parameter contracts explicit and enables unit testing.
+
+Dependency rule: no renderer or input_handler imports — pure logic only.
+"""
 import pygame
 import audio
 import highscore
@@ -15,6 +23,11 @@ from app_state import AppState, ENTER_NAME, GAME_OVER_ANIM, GAME_OVER, CLEARING
 
 
 def spawn_next(gs: GameState, app: AppState) -> bool:
+    """Dequeue the next piece, refill the queue tail, and reset per-piece state.
+
+    Returns False if the spawned piece immediately overlaps the stack (top-out).
+    The caller should call end_game() on False.
+    """
     gs.current         = gs.piece_queue.pop(0)
     gs.piece_queue.append(Piece())
     gs.next_flash_timer = NEXT_FLASH_MS
@@ -30,12 +43,19 @@ def spawn_next(gs: GameState, app: AppState) -> bool:
 
 
 def do_hold(gs: GameState, app: AppState) -> None:
+    """Stash the current piece into the hold slot (or swap with the existing one).
+
+    The piece is reset to its spawn orientation before stashing so that hold
+    always returns a fresh piece regardless of how it was rotated.
+    Hold is locked for the rest of the active piece's life (hold_used flag).
+    """
     if gs.hold_used:
         return
     gs.hold_used       = True
     gs.last_action     = 'gravity'
     gs.lock_timer      = gs.lock_move_count = 0
 
+    # Reset the current piece to spawn state before stashing.
     gs.current.shape     = [row[:] for row in SHAPES[gs.current.type]]
     gs.current.rot_state = 0
     gs.current.x         = COLS // 2 - len(gs.current.shape[0]) // 2
@@ -80,12 +100,26 @@ def end_game(gs: GameState, app: AppState) -> None:
 
 
 def reset_lock(gs: GameState) -> None:
+    """Restart the lock-delay timer on a move or rotation, up to LOCK_MAX_MOVES times.
+
+    Only resets when the piece is grounded — a move that lifts the piece off the
+    stack does not consume a reset (the timer just stops running).
+    The cap prevents infinite stalling by tapping repeatedly.
+    """
     if not gs.board.is_valid(gs.current, dy=1) and gs.lock_move_count < LOCK_MAX_MOVES:
         gs.lock_timer = 0
         gs.lock_move_count += 1
 
 
 def do_lock(gs: GameState, app: AppState) -> None:
+    """Place the current piece, score the placement, and start clearing or spawn next.
+
+    T-spin detection must happen before board.place() — after placement the
+    corner cells are no longer reliable for the 3-corner rule.
+
+    WOW (perfect clear) is true when every non-clearing row is completely empty.
+    Color clear fires when any cleared row is mono-color (all 10 cells same type).
+    """
     gs.tspin_type = rotation.detect_tspin(gs.board, gs.current, gs.last_action)
     gs.board.place(gs.current)
     gs.stat_pieces += 1
@@ -98,10 +132,12 @@ def do_lock(gs: GameState, app: AppState) -> None:
     full = gs.board.full_rows()
     if full:
         full_set       = set(full)
+        # WOW: every row outside the clearing set must be completely empty.
         gs.wow_active  = all(
             all(c == 0 for c in gs.board.grid[r])
             for r in range(ROWS) if r not in full_set
         )
+        # Color clear: first cleared row where all 10 cells share the same color_id.
         gs.color_clear_id = None
         for row_i in full:
             row_colors = set(gs.board.grid[row_i][c] for c in range(COLS))
@@ -126,6 +162,12 @@ def do_lock(gs: GameState, app: AppState) -> None:
 
 
 def debug_clear_board(gs: GameState, app: AppState) -> None:
+    """Fill every empty cell with color 1, then trigger a full 20-row clear.
+
+    This fires the WOW (perfect-clear) event and is used to test that path
+    without having to play to a natural board clear. Triggered by the 3-2-1
+    key sequence during gameplay.
+    """
     for r in range(ROWS):
         for c in range(COLS):
             if gs.board.grid[r][c] == 0:

@@ -1,3 +1,15 @@
+"""
+main.py — bootstrap and per-frame game loop.
+
+Responsibilities:
+  - Initialise pygame, display, audio, and music.
+  - Construct GameState and AppState (once each).
+  - Per frame: handle input → update game state → draw → flip display.
+  - Host the CLEARING scoring block (the only remaining logic island here;
+    candidate for game_logic.py in a future pass).
+
+Entry point: run_with_crash_handler(main) at the bottom of the file.
+"""
 import colorsys
 import random
 import pygame

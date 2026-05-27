@@ -1,4 +1,19 @@
-# input_handler.py — event dispatch + DAS auto-repeat, extracted from main.py
+"""
+input_handler.py — pygame event dispatch and DAS (delayed auto-shift) auto-repeat.
+
+handle_input(gs, app, dt) is called once per frame from main(). It:
+  1. Drains the pygame event queue and routes each event to the correct state handler.
+  2. Runs DAS auto-repeat at the end of the function (outside the event loop) so the
+     repeat rate is consistent regardless of how many events arrived that frame.
+
+DAS flow:
+  - KEYDOWN LEFT/RIGHT: set das_dir, reset das_timer, fire one immediate move.
+  - Every frame while das_dir != 0: accumulate das_timer.
+  - After das_delay ms: das_charged = True.
+  - With das_repeat == 0 (Instant): fire once per frame while charged.
+  - With das_repeat > 0: fire every das_repeat ms while charged.
+  - KEYUP: clear das_dir (or swap to opposite if the other key is still held).
+"""
 import sys
 import pygame
 

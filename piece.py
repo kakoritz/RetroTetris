@@ -1,3 +1,9 @@
+"""
+piece.py — Tetromino definition, 7-bag randomiser, and CW/CCW rotation.
+
+Piece.shape stores the live grid (color IDs, 0=empty).
+Piece.rot_state tracks rotation for SRS kick-table lookups (0=spawn, 1=CW, 2=180, 3=CCW).
+"""
 import random
 from constants import SHAPES, COLS
 
