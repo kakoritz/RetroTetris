@@ -7,7 +7,7 @@ A missing or corrupt file is silently treated as an empty leaderboard.
 import json
 from pathlib import Path
 
-_FILE      = Path(__file__).parent / "highscores.json"
+_FILE      = Path(__file__).parent.parent / "highscores.json"
 MAX_SCORES = 10
 
 

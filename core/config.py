@@ -8,7 +8,7 @@ Missing or corrupt config.json silently falls back to _DEFAULTS.
 import json
 from pathlib import Path
 
-_FILE = Path(__file__).parent / "config.json"
+_FILE = Path(__file__).parent.parent / "config.json"
 
 _DEFAULTS = {"scale": 1.5, "ghost_opacity": 15, "das_preset": "normal"}
 

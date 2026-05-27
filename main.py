@@ -10,6 +10,14 @@ Responsibilities:
 
 Entry point: run_with_crash_handler(main) at the bottom of the file.
 """
+import os as _os, sys as _sys
+_ROOT = _os.path.dirname(_os.path.abspath(__file__))
+for _d in ("core", "sounds", "render", "logic"):
+    _p = _os.path.join(_ROOT, _d)
+    if _p not in _sys.path:
+        _sys.path.insert(0, _p)
+del _os, _d, _p, _ROOT
+
 import colorsys
 import random
 import pygame
