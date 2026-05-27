@@ -2,7 +2,7 @@
 import pygame
 from board import Board
 from piece import Piece
-from game_constants import SPEED_RESET_INTERVAL, NEXT_FLASH_MS
+from game_constants import SPEED_RESET_INTERVAL
 
 
 class GameState:
@@ -15,10 +15,9 @@ class GameState:
 
     def reset(self) -> None:
         """Initialise (or reinitialise) all per-game variables."""
-        queue = [Piece() for _ in range(5)]
         self.board          = Board()
-        self.current        = queue[0]
-        self.piece_queue    = queue[1:]
+        self.current        = Piece()
+        self.piece_queue    = [Piece() for _ in range(5)]
 
         self.score      = 0
         self.lines      = 0
@@ -50,7 +49,7 @@ class GameState:
         self.first_clear_tetris  = False
 
         self.speed_reset_flash_timer = 0
-        self.next_flash_timer        = NEXT_FLASH_MS
+        self.next_flash_timer        = 0
 
         self.danger_bonuses: list = []
         self.score_deltas:   list = []
