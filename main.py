@@ -724,6 +724,9 @@ def main():
     clear_cells:    list = []
     danger:         bool = False   # True when any block occupies the top-10 rows
     wow_active:     bool = False   # True during a perfect-clear (board-empty) event
+    # Each entry: {'x', 'y', 'vy', 'timer', 'max_timer'}
+    # Spawned when rows above the danger line are cleared; float upward and fade.
+    danger_bonuses: list = []
 
     def _spawn_next():
         nonlocal current, next_piece
@@ -1059,13 +1062,30 @@ def main():
                 clear_flash_idx += 1
                 if clear_flash_idx >= ftotal:
                     # Animation done — tally score, remove rows, spawn next piece.
-                    lines  += clear_count
-                    score  += SCORE_TABLE.get(clear_count, 0) * (level + 1)
+                    lines += clear_count
+
+                    # Danger-zone bonus: any row above the red line (row < 10) doubles
+                    # the entire line-clear score for this clear event.
+                    danger_rows = [r for r in clear_rows if r < 10]
+                    danger_mult = 2 if danger_rows else 1
+
+                    base_score   = SCORE_TABLE.get(clear_count, 0) * (level + 1)
+                    score       += base_score * danger_mult
                     if wow_active:
-                        # Bonus on top of the normal line-clear score.
                         score += WOW_BONUS * (level + 1)
-                    level   = lines // 10 + 1
-                    best    = max(best, score)
+
+                    # Spawn a floating ×2 label for each danger-zone row cleared.
+                    for r in danger_rows:
+                        danger_bonuses.append({
+                            'x':         float(random.randint(10, BOARD_WIDTH - 50)),
+                            'y':         float(r * CELL_SIZE),
+                            'vy':        -115.0,   # px / s upward
+                            'timer':     1300,
+                            'max_timer': 1300,
+                        })
+
+                    level = lines // 10 + 1
+                    best  = max(best, score)
                     board.clear_lines()
                     # Always use maximum particles + shake for WOW.
                     particles += spawn_particles(clear_cells, wow_active or clear_count == 4)
@@ -1096,6 +1116,13 @@ def main():
         hd_flash_timer = max(0, hd_flash_timer - dt)
         shake_timer    = max(0, shake_timer    - dt)
 
+        # Advance danger-bonus ×2 floating labels (float upward, count down).
+        s = dt / 1000.0
+        for db in danger_bonuses:
+            db['y']     += db['vy'] * s
+            db['timer'] -= dt
+        danger_bonuses = [db for db in danger_bonuses if db['timer'] > 0]
+
         # ── draw ──────────────────────────────────────────────────────────────
         if state == MENU:
             draw_menu(screen, blink_on)
@@ -1123,6 +1150,13 @@ def main():
                 draw_piece(bsurf, current)
 
             draw_particles(bsurf, particles)
+
+            # Danger-zone bonus ×2 floating labels
+            for db in danger_bonuses:
+                a = int(255 * db['timer'] / db['max_timer'])
+                t = _font(20).render("×2", True, (255, 90, 0))
+                t.set_alpha(a)
+                bsurf.blit(t, (int(db['x']), int(db['y'])))
 
             # Hard-drop white flash
             if hd_flash_timer > 0:
