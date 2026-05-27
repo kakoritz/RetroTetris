@@ -3,7 +3,7 @@ from pathlib import Path
 
 _FILE = Path(__file__).parent / "config.json"
 
-_DEFAULTS = {"scale": 1.5, "ghost_opacity": 25}
+_DEFAULTS = {"scale": 1.5, "ghost_opacity": 15}
 
 VALID_SCALES = [1.0, 1.5, 2.0, 2.5]
 

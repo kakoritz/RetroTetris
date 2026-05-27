@@ -160,7 +160,7 @@ python3 main.py
 | Music Volume | 0 – 100 % | 40 % | Affects both menu and game music |
 | SFX Volume | 0 – 100 % | 100 % | Live preview on adjust |
 | Display Scale | 1× / 1.5× / 2× / 2.5× | 1.5× | Persisted to `config.json` |
-| Ghost Opacity | 0 – 100 % | 25 % | 0 % disables shadow entirely; 100 % looks like a solid tile |
+| Ghost Opacity | 0 – 100 % | 15 % | 0 % disables shadow entirely; 100 % looks like a solid tile |
 
 ---
 
