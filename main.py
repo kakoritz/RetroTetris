@@ -18,7 +18,6 @@ from constants import (
     BOARD_WIDTH, BOARD_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT,
     FPS, BG_COLOR, BORDER_COLOR, SCORE_TABLE, fall_speed,
 )
-import rotation
 from renderer import (
     _font, _BOARD_LINE,
     draw_board, _draw_danger_line, draw_piece, draw_ghost,
@@ -36,17 +35,14 @@ from game_constants import (
     GRAVITY_20G_LEVEL,
     SPEED_RESET_INTERVAL, CASCADE_INTERVAL_GROWTH,
     PALETTE_PHASE_INTERVAL,
-    PAGE_VOL_STEP,
     SPEED_RESET_FLASH_DURATION,
     CASCADE_BONUS_PER_RESET,
     POPUP_DURATION, SHAKE_DURATION, SHAKE_INTENSITY, HD_FLASH_DURATION,
 )
 from game_state import GameState
 from app_state import AppState
-from game_logic import (
-    spawn_next, do_hold, start_new_game, end_game,
-    reset_lock, do_lock, debug_clear_board,
-)
+from game_logic import spawn_next, end_game
+from input_handler import handle_input, MUSIC_END
 
 # ── states ────────────────────────────────────────────────────────────────────
 MENU        = "menu"
@@ -60,9 +56,6 @@ GAME_OVER_ANIM = "game_over_anim"
 PAUSED         = "paused"
 MUSIC_TEST     = "music_test"
 CASCADING      = "cascading"
-
-_MUSIC_END      = pygame.USEREVENT + 1
-_INITIALS_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ "
 
 
 def _make_display(scale: float) -> pygame.Surface:
@@ -99,7 +92,7 @@ def _build_icon() -> pygame.Surface:
 
 def main():
     pygame.init()
-    pygame.mixer.music.set_endevent(_MUSIC_END)
+    pygame.mixer.music.set_endevent(MUSIC_END)
 
     pygame.display.set_icon(_build_icon())
 
@@ -135,301 +128,7 @@ def main():
             app.blink_timer = 0
             app.blink_on    = not app.blink_on
 
-        # ── events ────────────────────────────────────────────────────────────
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit(); sys.exit()
-
-            if (event.type == _MUSIC_END
-                    and app.state in (PLAYING, CLEARING, CASCADING, PAUSED)):
-                music_game.on_music_end()
-                if app.state == PAUSED:
-                    pygame.mixer.music.set_volume(app.pre_pause_vol * 0.10)
-
-            # KEYUP: track DAS key releases regardless of state
-            if event.type == pygame.KEYUP:
-                if event.key == pygame.K_LEFT:
-                    app.keys_held.discard(pygame.K_LEFT)
-                    if app.das_dir == -1:
-                        app.das_dir = (1 if pygame.K_RIGHT in app.keys_held else 0)
-                        app.das_timer = 0; app.das_charged = False
-                elif event.key == pygame.K_RIGHT:
-                    app.keys_held.discard(pygame.K_RIGHT)
-                    if app.das_dir == 1:
-                        app.das_dir = (-1 if pygame.K_LEFT in app.keys_held else 0)
-                        app.das_timer = 0; app.das_charged = False
-
-            if event.type != pygame.KEYDOWN:
-                continue
-
-            # ── global keys (any state) ───────────────────────────────────────
-            if event.key == pygame.K_m:
-                music.toggle_mute()
-                music_game.set_muted(music.is_muted())
-                continue
-
-            if event.key == pygame.K_PAGEUP:
-                app.music_vol_pct = min(100, app.music_vol_pct + PAGE_VOL_STEP)
-                music.set_volume(app.music_vol_pct / 100)
-                music_game.set_volume(app.music_vol_pct / 100)
-                continue
-
-            if event.key == pygame.K_PAGEDOWN:
-                app.music_vol_pct = max(0, app.music_vol_pct - PAGE_VOL_STEP)
-                music.set_volume(app.music_vol_pct / 100)
-                music_game.set_volume(app.music_vol_pct / 100)
-                continue
-
-            # ── MENU ──────────────────────────────────────────────────────────
-            if app.state == MENU:
-                if event.key in (pygame.K_SPACE, pygame.K_RETURN, pygame.K_KP_ENTER):
-                    start_new_game(gs, app)
-                    app.best = highscore.best()
-                    music.fadeout(400)
-                    music_game.start_sequence()
-                    app.state = PLAYING
-                elif event.key == pygame.K_s:
-                    app.settings_row          = 0
-                    app.settings_return_state = MENU
-                    app.state = SETTINGS
-                elif event.key == pygame.K_t:
-                    app.music_test_tier = 1
-                    music.fadeout(300)
-                    music_game.start_level(app.music_test_tier)
-                    app.state = MUSIC_TEST
-
-            # ── PLAYING ───────────────────────────────────────────────────────
-            elif app.state == PLAYING:
-                # Secret 3-2-1 debug sequence: triggers a full board clear + WOW.
-                _CHEAT = [pygame.K_3, pygame.K_2, pygame.K_1]
-                if event.key == _CHEAT[len(app._cheat_seq)]:
-                    app._cheat_seq.append(event.key)
-                    if len(app._cheat_seq) == 3:
-                        app._cheat_seq.clear()
-                        debug_clear_board(gs, app)
-                        continue
-                else:
-                    app._cheat_seq.clear()
-
-                if event.key in (pygame.K_q, pygame.K_ESCAPE):
-                    app.pre_pause_vol = pygame.mixer.music.get_volume()
-                    pygame.mixer.music.set_volume(max(0.0, app.pre_pause_vol * 0.10))
-                    app.state = PAUSED
-                elif event.key == pygame.K_LEFT:
-                    app.keys_held.add(pygame.K_LEFT)
-                    app.das_dir = -1; app.das_timer = 0; app.das_charged = False
-                    if gs.board.is_valid(gs.current, dx=-1):
-                        gs.current.x -= 1
-                        gs.last_action = 'move'
-                        audio.play('move')
-                        reset_lock(gs)
-                        if gs.level >= GRAVITY_20G_LEVEL:
-                            while gs.board.is_valid(gs.current, dy=1):
-                                gs.current.y += 1
-                elif event.key == pygame.K_RIGHT:
-                    app.keys_held.add(pygame.K_RIGHT)
-                    app.das_dir = 1; app.das_timer = 0; app.das_charged = False
-                    if gs.board.is_valid(gs.current, dx=1):
-                        gs.current.x += 1
-                        gs.last_action = 'move'
-                        audio.play('move')
-                        reset_lock(gs)
-                        if gs.level >= GRAVITY_20G_LEVEL:
-                            while gs.board.is_valid(gs.current, dy=1):
-                                gs.current.y += 1
-                elif event.key == pygame.K_DOWN:
-                    if gs.board.is_valid(gs.current, dy=1):
-                        gs.current.y += 1
-                        gs.score      += 1
-                        gs.last_action = 'soft_drop'
-                        gs.lock_timer  = 0
-                elif event.key == pygame.K_UP:
-                    if event.mod & pygame.KMOD_CTRL:
-                        if rotation.try_rotate(gs.board, gs.current, *gs.current.rotated_ccw()):
-                            gs.last_action = 'rotate'
-                            reset_lock(gs)
-                    else:
-                        if rotation.try_rotate(gs.board, gs.current, *gs.current.rotated_cw()):
-                            gs.last_action = 'rotate'
-                            reset_lock(gs)
-                elif event.key == pygame.K_z:
-                    if rotation.try_rotate(gs.board, gs.current, *gs.current.rotated_ccw()):
-                        gs.last_action = 'rotate'
-                        reset_lock(gs)
-                elif event.key == pygame.K_c:
-                    do_hold(gs, app)
-                elif event.key == pygame.K_SPACE:
-                    gs.hd_flash_timer = HD_FLASH_DURATION
-                    _hd_start_y = gs.current.y
-                    while gs.board.is_valid(gs.current, dy=1):
-                        gs.current.y += 1
-                    gs.score      += (gs.current.y - _hd_start_y) * 2
-                    gs.last_action = 'hard_drop'
-                    audio.play('hard_drop')
-                    gs.fall_timer  = 0
-                    do_lock(gs, app)
-
-            # ── GAME OVER ANIM (press any key to continue) ────────────────────
-            elif app.state == GAME_OVER_ANIM:
-                if app.go_anim.all_landed:
-                    app.state = app.post_anim_state
-
-            # ── PAUSED ────────────────────────────────────────────────────────
-            elif app.state == PAUSED:
-                if event.key == pygame.K_q:
-                    music_game.stop()
-                    music.start_menu()
-                    app.state = MENU
-                elif event.key == pygame.K_SPACE:
-                    pygame.mixer.music.set_volume(app.pre_pause_vol)
-                    app.state = PLAYING
-                elif event.key == pygame.K_s:
-                    pygame.mixer.music.set_volume(app.pre_pause_vol)
-                    app.settings_row          = 0
-                    app.settings_return_state = PAUSED
-                    app.state = SETTINGS
-
-            # ── GAME OVER ─────────────────────────────────────────────────────
-            elif app.state == GAME_OVER:
-                if event.key == pygame.K_r:
-                    start_new_game(gs, app)
-                    music_game.stop()
-                    music_game.start_sequence()
-                    app.state = PLAYING
-                elif event.key in (pygame.K_SPACE, pygame.K_ESCAPE):
-                    music_game.stop()
-                    music.start_menu()
-                    app.state = MENU
-                elif event.key == pygame.K_l:
-                    app.lb_scores   = highscore.load()
-                    app.lb_hi_name  = app.lb_hi_score = None
-                    app.state       = LEADERBOARD
-
-            # ── ENTER NAME ────────────────────────────────────────────────────
-            elif app.state == ENTER_NAME:
-                idx = _INITIALS_CHARS
-                if event.key == pygame.K_UP:
-                    pos = (idx.index(app.initials[app.ini_cursor]) - 1) % len(idx)
-                    app.initials[app.ini_cursor] = idx[pos]
-                elif event.key == pygame.K_DOWN:
-                    pos = (idx.index(app.initials[app.ini_cursor]) + 1) % len(idx)
-                    app.initials[app.ini_cursor] = idx[pos]
-                elif event.key == pygame.K_LEFT and app.ini_cursor > 0:
-                    app.ini_cursor -= 1
-                elif event.key in (pygame.K_RIGHT, pygame.K_RETURN, pygame.K_KP_ENTER):
-                    if app.ini_cursor < 2:
-                        app.ini_cursor += 1
-                    else:
-                        name            = ''.join(app.initials).strip() or "???"
-                        app.lb_scores   = highscore.insert(name, gs.score, gs.lines, gs.level)
-                        app.lb_hi_name  = name
-                        app.lb_hi_score = gs.score
-                        app.best        = highscore.best()
-                        app.state       = LEADERBOARD
-                elif pygame.K_a <= event.key <= pygame.K_z:
-                    app.initials[app.ini_cursor] = chr(event.key).upper()
-                    if app.ini_cursor < 2:
-                        app.ini_cursor += 1
-
-            # ── LEADERBOARD ───────────────────────────────────────────────────
-            elif app.state == LEADERBOARD:
-                if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_ESCAPE):
-                    music_game.stop()
-                    music.start_menu()
-                    app.state = MENU
-                elif event.key == pygame.K_r:
-                    start_new_game(gs, app)
-                    music_game.stop()
-                    music_game.start_sequence()
-                    app.state = PLAYING
-
-            # ── MUSIC PREVIEW ─────────────────────────────────────────────────
-            elif app.state == MUSIC_TEST:
-                if event.key in (pygame.K_ESCAPE, pygame.K_RETURN,
-                                 pygame.K_KP_ENTER):
-                    music_game.stop()
-                    music.start_menu()
-                    app.state = MENU
-                elif event.key == pygame.K_UP:
-                    app.music_test_tier = max(1, app.music_test_tier - 1)
-                    music_game.start_level(app.music_test_tier)
-                elif event.key == pygame.K_DOWN:
-                    app.music_test_tier = min(10, app.music_test_tier + 1)
-                    music_game.start_level(app.music_test_tier)
-
-            # ── SETTINGS ──────────────────────────────────────────────────────
-            elif app.state == SETTINGS:
-                if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_ESCAPE):
-                    if app.settings_return_state == PAUSED:
-                        app.pre_pause_vol = app.music_vol_pct / 100
-                        pygame.mixer.music.set_volume(max(0.0, app.pre_pause_vol * 0.10))
-                        app.state = PAUSED
-                    else:
-                        app.state = MENU
-                elif event.key == pygame.K_UP:
-                    app.settings_row = (app.settings_row - 1) % 5
-                elif event.key == pygame.K_DOWN:
-                    app.settings_row = (app.settings_row + 1) % 5
-                elif event.key in (pygame.K_LEFT, pygame.K_RIGHT):
-                    delta = -5 if event.key == pygame.K_LEFT else 5
-                    if app.settings_row == 0:
-                        app.music_vol_pct = max(0, min(100, app.music_vol_pct + delta))
-                        music.set_volume(app.music_vol_pct / 100)
-                        music_game.set_volume(app.music_vol_pct / 100)
-                    elif app.settings_row == 1:
-                        app.sfx_vol_pct = max(0, min(100, app.sfx_vol_pct + delta))
-                        audio.set_sfx_volume(app.sfx_vol_pct / 100)
-                        audio.play('rotate')
-                    elif app.settings_row == 2:
-                        scales = config.VALID_SCALES
-                        idx = scales.index(app.current_scale) if app.current_scale in scales else 0
-                        idx = max(0, min(len(scales) - 1,
-                                        idx + (1 if event.key == pygame.K_RIGHT else -1)))
-                        new_scale = scales[idx]
-                        if new_scale != app.current_scale:
-                            app.current_scale = new_scale
-                            config.set_scale(app.current_scale)
-                            app.display = _make_display(app.current_scale)
-                    elif app.settings_row == 3:
-                        app.ghost_opacity_pct = max(0, min(100, app.ghost_opacity_pct + delta))
-                        config.set_ghost_opacity(app.ghost_opacity_pct)
-                    else:
-                        presets = config.VALID_DAS_PRESETS
-                        idx = presets.index(app.das_preset) if app.das_preset in presets else 1
-                        idx = max(0, min(len(presets) - 1,
-                                        idx + (1 if event.key == pygame.K_RIGHT else -1)))
-                        app.das_preset               = presets[idx]
-                        app.das_delay, app.das_repeat = config.DAS_SETTINGS[app.das_preset]
-                        config.set_das_preset(app.das_preset)
-
-        # ── DAS auto-repeat ───────────────────────────────────────────────────
-        if app.state == PLAYING and app.das_dir != 0:
-            app.das_timer += dt
-            if not app.das_charged:
-                if app.das_timer >= app.das_delay:
-                    app.das_charged = True
-                    app.das_timer   = 0
-            else:
-                if app.das_repeat == 0:
-                    if gs.board.is_valid(gs.current, dx=app.das_dir):
-                        gs.current.x += app.das_dir
-                        gs.last_action = 'move'
-                        audio.play('move')
-                        reset_lock(gs)
-                        if gs.level >= GRAVITY_20G_LEVEL:
-                            while gs.board.is_valid(gs.current, dy=1):
-                                gs.current.y += 1
-                else:
-                    while app.das_timer >= app.das_repeat:
-                        app.das_timer -= app.das_repeat
-                        if gs.board.is_valid(gs.current, dx=app.das_dir):
-                            gs.current.x += app.das_dir
-                            gs.last_action = 'move'
-                            audio.play('move')
-                            reset_lock(gs)
-                            if gs.level >= GRAVITY_20G_LEVEL:
-                                while gs.board.is_valid(gs.current, dy=1):
-                                    gs.current.y += 1
+        handle_input(gs, app, dt)
 
         # ── danger detection → tier-1 tension music + warning line ──────────
         if app.state in (PLAYING, CLEARING, CASCADING):
