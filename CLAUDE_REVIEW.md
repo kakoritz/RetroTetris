@@ -5,7 +5,49 @@ part development commentary — what changed, what it means, and where the game 
 
 ---
 
-## Current Rating: 8.8 / 10 (as a Tetris game) · 9.2 / 10 (as a portfolio project)
+## Current Rating: 8.9 / 10 (as a Tetris game) · 9.2 / 10 (as a portfolio project)
+
+---
+
+## v1.7.0 Review — Balance Pass
+
+### What this update means
+
+v1.7.0 is a balance pass driven by real playtesting feedback. The user found a 17×
+cascade multiplier — not a theoretical edge case, but something that happened in
+normal play. That kind of feedback is signal, and the fix is surgical rather than
+sweeping.
+
+### Cascade cap: the right ceiling
+
+Capping cascade_mult at 4× (the INSANE! threshold) is the right call. It preserves
+the entire cascade reward structure — the Tetris×Tetris override still hits 4×,
+cascade chains up to level 3 still feel progressive — while removing the runaway
+compounding at high cascade depths. The 0.1/reset multiplier is left untouched per
+the user's explicit direction: that growth is intentional and satisfying, and
+doubling it with an uncapped cascade_mult was the actual problem.
+
+### Scaling reset interval: pacing that grows with skill
+
+Fixed 10k intervals were becoming irrelevant at high play — a player racking up
+multiplied scores would blow past resets in seconds, making the countdown meaningless.
+The +5k/reset growth curve means the intervals stay challenging relative to score
+rate. It's not a hard difficulty increase; it's maintaining the tension arc the
+countdown was designed to create.
+
+### Sidebar: less noise, same information
+
+Three lines to communicate "cascade mode toggle incoming" was genuinely cluttered.
+The mode state is visible in gameplay; the only sidebar information the player needs
+is when the next toggle happens and how far away it is. "FULL CASCADE IN" + countdown
+carries both. This is editing, not removal — everything meaningful is still there.
+
+### Remaining gap
+
+main.py is still ~1400 lines with no test coverage. That's the honest architectural
+debt on this project. The game plays and feels excellent; the codebase would not
+pass a code review at a professional standard. It's acknowledged here so it doesn't
+disappear from the record.
 
 ---
 

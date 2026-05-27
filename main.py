@@ -83,7 +83,8 @@ GRAVITY_20G_LEVEL = 20   # level at which gravity becomes instant-drop per tick
 PLACEMENT_SCORE = 10     # small reward for every piece locked
 
 # ── speed reset ───────────────────────────────────────────────────────────────
-SPEED_RESET_INTERVAL = 10000   # every N points, fall speed resets to tier 1
+SPEED_RESET_INTERVAL  = 10000   # every N points, fall speed resets to tier 1
+CASCADE_INTERVAL_GROWTH = 5000  # each reset raises the threshold by this much more
 
 # ── palette shift ─────────────────────────────────────────────────────────────
 PALETTE_PHASE_INTERVAL = 10   # levels per palette darkening step (6 phases, then wraps)
@@ -413,8 +414,8 @@ def draw_sidebar(surf: pygame.Surface, score: int, lines: int,
         surf.blit(_font(12).render(f"×{reset_bonus_mult:.1f}", True, (255, 200, 50)),
                   (sx + 48, 167))
 
-    # Countdown to next cascade mode toggle / speed reset
-    surf.blit(_font(12).render("CASCADE IN", True, BORDER_COLOR), (sx, 191))
+    # Countdown to next speed reset / cascade mode toggle
+    surf.blit(_font(12).render("FULL CASCADE IN", True, BORDER_COLOR), (sx, 191))
     pts_left = max(0, next_speed_reset - score)
     if pts_left > 2000:
         rst_col = (100, 255, 100)
@@ -423,15 +424,6 @@ def draw_sidebar(surf: pygame.Surface, score: int, lines: int,
     else:
         rst_col = (255, 80, 80)
     surf.blit(_font(14).render(f"{pts_left:,} pts", True, rst_col), (sx, 204))
-
-    # Full-cascade mode indicator — always shown so layout is stable
-    if full_cascade_mode:
-        fc_col  = (80, 255, 180)
-        fc_mark = "★ FULL CASCADE"
-    else:
-        fc_col  = (60, 70, 80)
-        fc_mark = "○ FULL CASCADE"
-    surf.blit(_font(11).render(fc_mark, True, fc_col), (sx, 222))
 
     box_w  = SIDEBAR_WIDTH - 16
     box_x  = sx - 4
@@ -1571,7 +1563,7 @@ def main():
 
                     # Cascade multiplier: 1× for the first clear, 2× for first
                     # cascade, 3× for second, etc.
-                    cascade_mult = cascade_level + 1
+                    cascade_mult = min(cascade_level + 1, 4)
 
                     # Base line-clear score: T-spin tables override SCORE_TABLE.
                     is_tspin      = tspin_type is not None and not wow_active
@@ -1670,7 +1662,7 @@ def main():
                     # and Full Cascade Mode toggles on/off.
                     speed_reset_triggered = False
                     while score >= next_speed_reset:
-                        next_speed_reset     += SPEED_RESET_INTERVAL
+                        next_speed_reset     += SPEED_RESET_INTERVAL + speed_reset_count * CASCADE_INTERVAL_GROWTH
                         speed_tier            = 1
                         speed_reset_count    += 1
                         reset_bonus_mult      = round(1.0 + speed_reset_count * 0.1, 1)
@@ -1820,7 +1812,7 @@ def main():
                             'max_timer': 1600,
                         })
                         while score >= next_speed_reset:
-                            next_speed_reset  += SPEED_RESET_INTERVAL
+                            next_speed_reset  += SPEED_RESET_INTERVAL + speed_reset_count * CASCADE_INTERVAL_GROWTH
                             speed_tier         = 1
                             speed_reset_count += 1
                             reset_bonus_mult   = round(1.0 + speed_reset_count * 0.1, 1)

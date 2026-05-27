@@ -32,7 +32,8 @@ Version number format: `v1.MAJOR.MINOR` — bump MINOR for any visible change, M
 ## Key Variable Relationships
 
 - `level` drives: scoring multiplier `(level + 1)`, palette phase, 20G gate
-- `speed_tier` drives: fall speed (`fall_speed(speed_tier)`); resets every `SPEED_RESET_INTERVAL` pts
+- `speed_tier` drives: fall speed (`fall_speed(speed_tier)`); resets when score crosses `next_speed_reset`
+- `next_speed_reset`: starts at `SPEED_RESET_INTERVAL` (10k); each reset adds `SPEED_RESET_INTERVAL + speed_reset_count * CASCADE_INTERVAL_GROWTH (5k)` to the threshold
 - `reset_bonus_mult`: starts 1.0, +0.1 per speed reset; applied to line-clear scores
 - `full_cascade_mode`: toggles on/off each speed reset; True = animated CASCADING state after clears
 - `palette_phase`: `((level - 1) // PALETTE_PHASE_INTERVAL) % 6`

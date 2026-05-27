@@ -78,7 +78,7 @@ persisted across sessions in `config.json`. Ghost-piece opacity is also persiste
 - **Board-centred popups** — all clear feedback (Nice! → Great! → Fantastic! → TETRIS! → T-SPIN! → etc.) floats up from the play area, not the sidebar
 - **Scaled particle explosions** — burst intensity grows with row count (1→2→3→4 lines)
 - **Cascade gravity** — floating blocks settle after every line clear; Full Board Cascade mode (animated domino wave + cascade scoring) toggles on at each speed reset
-- **Speed reset** — every 10,000 points fall speed resets to tier 1; score multiplier increases +0.1×; "CASCADE IN N pts" countdown in sidebar
+- **Speed reset** — fall speed resets to tier 1 each time the threshold is crossed; threshold starts at 10,000 pts and grows by 5,000 per reset; score multiplier increases +0.1×; "FULL CASCADE IN N pts" countdown in sidebar
 - **Palette shift** — tiles darken 10 % every 10 levels, cycling through 6 phases
 - **Placement score** — +10 pts per piece placed
 - **HOLD box glow** — slow cyan pulse when a piece is queued so you never forget it's there

@@ -157,10 +157,11 @@ real upside. The WOW bonus is a capstone reward for an extremely rare feat.
 
 ### 4.1 Speed reset
 
-Every 10,000 points the fall-speed tier resets to 1. The sidebar shows a "CASCADE IN N pts"
-countdown that turns orange below 2,000 and red below 500 — a persistent tension driver
-that creates a secondary deadline throughout the game. Each reset also toggles Full Board
-Cascade mode on or off, so the player always knows which mode is coming next.
+The fall-speed tier resets to 1 each time the player crosses a threshold. The threshold
+starts at 10,000 points and grows by 5,000 per reset (1st = 10k, 2nd = 15k, 3rd = 20k, …),
+keeping the countdown meaningful as score multipliers accumulate. The sidebar shows a
+"FULL CASCADE IN N pts" countdown that turns orange below 2,000 and red below 500 — a
+persistent tension driver. Each reset also toggles Full Board Cascade mode on or off.
 
 ### 4.3 Score-delta feedback
 
@@ -176,8 +177,9 @@ After every line clear, blocks that are now floating fall:
 
 - **Normal mode:** all floating blocks settle instantly (full block gravity, no bonus).
 - **Full Board Cascade mode:** blocks fall one row per 80 ms (animated domino wave).
-  New complete rows created by the cascade clear again with a cascade multiplier.
-  A "CASCADE!" rainbow overlay appears on the board during the animation.
+  New complete rows created by the cascade clear again at an increasing multiplier
+  (2× → 3× → 4×, capped at 4×). A "CASCADE!" rainbow overlay appears on the board
+  during the animation.
 
 ---
 

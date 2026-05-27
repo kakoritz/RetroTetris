@@ -2,6 +2,24 @@
 
 ---
 
+## v1.7.0 — Cascade Cap, Scaling Reset Interval, Sidebar Cleanup
+*2026-05-27*
+
+### Changed
+- **Cascade multiplier capped at 4×** — `cascade_mult` was unbounded (`cascade_level + 1`),
+  allowing chains of 16+ cascades to produce 17× multipliers that compounded destructively
+  with level, danger, and reset bonuses. Cap is now 4× (the INSANE! threshold), keeping
+  full-cascade mode exciting without breaking score balance.
+- **Scaling reset interval** — the speed reset threshold no longer resets to a flat 10,000
+  pts every time. Each subsequent reset adds 5,000 pts to the interval
+  (1st = 10k, 2nd = 15k, 3rd = 20k, …). As multipliers accumulate, the next reset becomes
+  proportionally harder to reach, keeping pacing meaningful at high scores.
+- **Sidebar: 3-line cascade UI → 2-line** — the separate `○/★ FULL CASCADE` indicator line
+  is removed. The header now reads "FULL CASCADE IN" with the colour-coded countdown directly
+  below. One label explains both the mode and the countdown.
+
+---
+
 ## v1.6.0 — 5-Piece Preview, Score Deltas, 20G Alert, Cascade Bonus Fix
 *2026-05-27*
 
