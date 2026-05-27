@@ -93,6 +93,11 @@ def do_hold(gs: GameState, app: AppState) -> None:
 def start_new_game(gs: GameState, app: AppState) -> None:
     gs.reset()
     app.reset_das()
+    # Reset odometer so it doesn't show stale values from demo or prior game
+    app.score_disp        = 0.0
+    app.score_disp_digits = [0] * 8
+    app.score_anim_from   = [0] * 8
+    app.score_anim_offs   = [0.0] * 8
     audio.play_spawn(gs.current.color_id)
 
 

@@ -290,11 +290,10 @@ def handle_input(gs: GameState, app: AppState, dt: int) -> None:
                 music_game.start_level(app.music_test_tier)
 
         # ── DEMO ──────────────────────────────────────────────────────────────
-        elif app.state == DEMO:
+        elif app.demo_active:
             if event.key in (pygame.K_SPACE, pygame.K_ESCAPE):
-                music_game.stop()
-                music.start_menu()
-                app.state = MENU
+                import demo as _dm
+                _dm.exit_demo(gs, app)
 
         # ── SETTINGS ──────────────────────────────────────────────────────────
         elif app.state == SETTINGS:

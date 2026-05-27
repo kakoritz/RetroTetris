@@ -93,14 +93,14 @@ class AppState:
         self.score_anim_offs:   list  = [0.0] * 8  # 1.0=just changed → 0.0=settled
 
         # ── demo mode ─────────────────────────────────────────────────────────
-        self.demo_scenario_idx: int  = 0
-        self.demo_phase:        str  = 'setup'   # 'setup' | 'move' | 'wait'
-        self.demo_bot_timer:    int  = 0          # throttle: move every N ms
-        self.demo_wait_timer:   int  = 0
-        self.demo_target_col:   int  = 0
-        self.demo_target_rot:   int  = 0
-        self.demo_label:        str  = ''
-        self.menu_idle_timer:   int  = 0          # ms since last key at menu
+        self.demo_active:           bool = False
+        self.demo_scenario_idx:     int  = 0
+        self.demo_phase:            str  = 'setup'   # 'setup'|'fall'|'clearing'|'wait'
+        self.demo_fall_timer:       int  = 0
+        self.demo_wait_timer:       int  = 0
+        self.demo_scenario_wait_ms: int  = 0
+        self.demo_label:            str  = ''
+        self.menu_idle_timer:       int  = 0          # ms since last key at menu
 
         # ── debug cheat sequences ─────────────────────────────────────────────
         self._cheat_seq: list = []   # 3-2-1 WOW trigger

@@ -223,7 +223,7 @@ def main():
         gs.score_deltas = [sd for sd in gs.score_deltas if sd['timer'] > 0]
 
         # ── demo bot update ──────────────────────────────────────────────────
-        if app.state == DEMO:
+        if app.demo_active:
             demo_mod.update_demo(gs, app, dt)
 
         # ── draw ──────────────────────────────────────────────────────────────
