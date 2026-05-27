@@ -25,8 +25,7 @@ _muted            = False
 # ── sequence definition ───────────────────────────────────────────────────────
 # Each entry: (tier, plays).  plays=2 means play twice before advancing.
 _GAME_SEQUENCE = [
-    (1, 3),   # sparse bass pulse — feels bare, so denser tiers are satisfying
-    (2, 2),   # walking bass adds movement
+    (2, 1),   # walking bass — normal gameplay floor (tier 1 reserved for danger only)
     (3, 2),   # groove bass fills it out
     (4, 2),   # chord movement kicks in
     (5, 2),   # arpeggio layer arrives
