@@ -24,6 +24,25 @@ from constants import (
 from board import Board
 from piece import Piece
 from sprites import get_block, get_ghost
+from game_constants import (
+    DAS_DELAY, DAS_REPEAT,
+    LOCK_DELAY, LOCK_MAX_MOVES,
+    FLASH_MS, FLASH_TOTAL, FLASH_COLOR_NORM, FLASH_COLOR_QUAD,
+    FLASH_MS_WOW, FLASH_TOTAL_WOW,
+    WOW_BONUS, WOW_POPUP_DURATION, COLOR_CLEAR_BONUS,
+    TSPIN_SCORES, TSPIN_MINI_SCORES,
+    COMBO_BONUS_UNIT,
+    GRAVITY_20G_LEVEL,
+    PLACEMENT_SCORE,
+    SPEED_RESET_INTERVAL, CASCADE_INTERVAL_GROWTH,
+    PALETTE_PHASE_INTERVAL,
+    PAGE_VOL_STEP,
+    SPEED_RESET_FLASH_DURATION,
+    CASCADE_STEP_MS, CASCADE_BONUS_PER_RESET,
+    POPUP_DURATION, SHAKE_DURATION, SHAKE_INTENSITY, HD_FLASH_DURATION,
+    POPUP_STYLES,
+    _TSPIN_POINT, _KICKS_JLSZT, _KICKS_I,
+)
 
 
 # ── states ────────────────────────────────────────────────────────────────────
@@ -42,69 +61,6 @@ CASCADING      = "cascading"   # animated full-board gravity (full cascade mode)
 _MUSIC_END = pygame.USEREVENT + 1   # fired by mixer when a track finishes naturally
 
 _INITIALS_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ "
-
-# ── DAS (delayed auto-shift) ──────────────────────────────────────────────────
-DAS_DELAY  = 170   # ms before auto-repeat starts
-DAS_REPEAT = 50    # ms between repeated moves
-
-# ── lock delay ────────────────────────────────────────────────────────────────
-LOCK_DELAY     = 500   # ms grace period after a piece touches the stack
-LOCK_MAX_MOVES = 15    # max resets per piece; prevents infinite stalling
-
-# ── line-clear flash animation ────────────────────────────────────────────────
-FLASH_MS    = {1: 85, 2: 80, 3: 75, 4: 68}   # ms per on/off phase
-FLASH_TOTAL = {1: 2,  2: 4,  3: 6,  4: 10}   # phases per count
-FLASH_COLOR_NORM = (255, 255, 255)
-FLASH_COLOR_QUAD = (255, 215,   0)
-
-# Perfect-clear (WOW) flash — longer and faster than a Tetris
-FLASH_MS_WOW    = 48    # ms per phase
-FLASH_TOTAL_WOW = 18    # number of on/off phases
-
-WOW_BONUS          = 5000   # flat score multiplied by (level + 1)
-WOW_POPUP_DURATION = 4500   # ms — WOW popup lingers much longer than normal
-COLOR_CLEAR_BONUS  = 5000   # flat bonus for clearing a mono-color row
-
-# ── T-spin scoring (base, before level multiplier) ───────────────────────────
-# Full T-spin: last action was a rotation AND 3+ of the 4 bounding-box corners
-# are occupied.  Mini: only 2 corners, but both "point-side" corners are blocked.
-TSPIN_SCORES      = {0: 400, 1: 800,  2: 1200, 3: 1600}
-TSPIN_MINI_SCORES = {0: 100, 1: 200,  2: 400}
-
-# ── combo bonus ───────────────────────────────────────────────────────────────
-# Added on top of the line-clear score for each consecutive clear.
-# combo=0 on the first clear in a row (no bonus); increments with each further
-# consecutive clear so bonus = 50 × combo × (level + 1).
-COMBO_BONUS_UNIT = 50
-
-# ── 20G gravity ───────────────────────────────────────────────────────────────
-GRAVITY_20G_LEVEL = 20   # level at which gravity becomes instant-drop per tick
-
-# ── placement score ───────────────────────────────────────────────────────────
-PLACEMENT_SCORE = 10     # small reward for every piece locked
-
-# ── speed reset ───────────────────────────────────────────────────────────────
-SPEED_RESET_INTERVAL  = 10000   # every N points, fall speed resets to tier 1
-CASCADE_INTERVAL_GROWTH = 5000  # each reset raises the threshold by this much more
-
-# ── palette shift ─────────────────────────────────────────────────────────────
-PALETTE_PHASE_INTERVAL = 10   # levels per palette darkening step (6 phases, then wraps)
-
-# ── page-up/down in-game volume ───────────────────────────────────────────────
-PAGE_VOL_STEP = 5   # % per keypress
-
-# ── speed-reset flash overlay ─────────────────────────────────────────────────
-SPEED_RESET_FLASH_DURATION = 2500   # ms — "SPEED RESET!" drawn on board
-
-# ── full board cascade animation ──────────────────────────────────────────────
-CASCADE_STEP_MS   = 80    # ms between each one-row gravity wave
-CASCADE_BONUS_PER_RESET = 5000   # flat score bonus per reset count when cascade completes
-
-# ── sidebar popup ─────────────────────────────────────────────────────────────
-POPUP_DURATION    = 2000   # ms
-SHAKE_DURATION    = 380    # ms  (quad clear only)
-SHAKE_INTENSITY   = 5      # px
-HD_FLASH_DURATION = 90     # ms  (hard drop impact)
 
 # Board background colors (Tron dark grid)
 _BOARD_LINE = (0, 38, 65)    # dark-cyan shown in the 1 px gaps between cells
@@ -148,29 +104,6 @@ _PAUSE_COLORS = [
 _PAUSE_BLOCK = 12   # px block size for PAUSE text
 _PAUSE_CELL  = 14   # block + 2 px gap
 
-POPUP_STYLES = {
-    # count 0 is reserved for the perfect-clear WOW popup (board-centered, rainbow)
-    0:  ("!! W O W !!",      None,           32),
-    1:  ("Nice!",            (100, 255, 120), 17),
-    2:  ("Great!",           (255, 235,  60), 20),
-    3:  ("Fantastic!",       (255, 150,  50), 20),
-    4:  ("TETRIS!",           None,           24),  # None = rainbow
-    5:  ("T-SPIN!",          (200, 100, 255), 22),
-    6:  ("T-SPIN MINI",      (180,  80, 200), 17),
-    7:  ("B2B TETRIS!",       None,           22),  # None = rainbow
-    8:  ("B2B T-SPIN!",      (220, 130, 255), 22),
-    # cascade chain popups
-    9:  ("Wild!",            ( 80, 255, 180), 18),
-    10: ("Woah!",            (255, 200,  50), 20),
-    11: ("Crazy!",           (255,  80,  50), 22),
-    12: ("INSANE!",          (255,  50, 255), 26),
-    # Tetris×Tetris cascade: board-centered rainbow (treated like WOW)
-    13: ("TETRIS×TETRIS!",    None,           28),
-    14: ("GRAVITY  20G",     (255, 80,   0),  24),
-    # color-clear event: board-centered rainbow, same treatment as WOW
-    15: ("COLOR CLEAR!",     None,           28),
-}
-
 _font_cache: dict = {}
 
 def _font(size: int, bold: bool = True) -> pygame.font.Font:
@@ -178,49 +111,6 @@ def _font(size: int, bold: bool = True) -> pygame.font.Font:
     if key not in _font_cache:
         _font_cache[key] = pygame.font.SysFont("monospace", size, bold=bold)
     return _font_cache[key]
-
-
-# ── T-spin corner detection ───────────────────────────────────────────────────
-# The T-piece always fits in a 3×3 bounding box.  The 4 corners are indexed:
-#   0=(TL) 1=(TR) 2=(BL) 3=(BR).
-# "Point-side" corners are the two that sit on the same side as the T-bump.
-# A T-spin mini requires exactly 2 corners blocked AND both point-side corners
-# are among them.
-_TSPIN_POINT = {
-    0: (0, 1),   # state 0 (bump up)    → top corners
-    1: (1, 3),   # state 1 (bump right) → right corners
-    2: (2, 3),   # state 2 (bump down)  → bottom corners
-    3: (0, 2),   # state 3 (bump left)  → left corners
-}
-
-# ── SRS wall-kick tables ──────────────────────────────────────────────────────
-# Offsets are (dx, dy) in game coordinates (x right, y down).
-# Source: Tetris Guideline SRS, with y-axis negated to match screen coords.
-#
-# Each key is (from_state, to_state). The O-piece never needs kicks; the I-piece
-# uses its own table because its rotation centre differs from JLSZT.
-
-_KICKS_JLSZT: dict[tuple, list[tuple]] = {
-    (0, 1): [( 0, 0), (-1,  0), (-1, -1), (0,  2), (-1,  2)],
-    (1, 0): [( 0, 0), ( 1,  0), ( 1,  1), (0, -2), ( 1, -2)],
-    (1, 2): [( 0, 0), ( 1,  0), ( 1,  1), (0, -2), ( 1, -2)],
-    (2, 1): [( 0, 0), (-1,  0), (-1, -1), (0,  2), (-1,  2)],
-    (2, 3): [( 0, 0), ( 1,  0), ( 1, -1), (0,  2), ( 1,  2)],
-    (3, 2): [( 0, 0), (-1,  0), (-1,  1), (0, -2), (-1, -2)],
-    (3, 0): [( 0, 0), (-1,  0), (-1,  1), (0, -2), (-1, -2)],
-    (0, 3): [( 0, 0), ( 1,  0), ( 1, -1), (0,  2), ( 1,  2)],
-}
-
-_KICKS_I: dict[tuple, list[tuple]] = {
-    (0, 1): [( 0,  0), (-2,  0), ( 1,  0), (-2,  1), ( 1, -2)],
-    (1, 0): [( 0,  0), ( 2,  0), (-1,  0), ( 2, -1), (-1,  2)],
-    (1, 2): [( 0,  0), (-1,  0), ( 2,  0), (-1, -2), ( 2,  1)],
-    (2, 1): [( 0,  0), ( 1,  0), (-2,  0), ( 1,  2), (-2, -1)],
-    (2, 3): [( 0,  0), ( 2,  0), (-1,  0), ( 2, -1), (-1,  2)],
-    (3, 2): [( 0,  0), (-2,  0), ( 1,  0), (-2,  1), ( 1, -2)],
-    (3, 0): [( 0,  0), ( 1,  0), (-2,  0), ( 1,  2), (-2, -1)],
-    (0, 3): [( 0,  0), (-1,  0), ( 2,  0), (-1, -2), ( 2,  1)],
-}
 
 
 def _try_rotate(board: Board, piece: Piece,

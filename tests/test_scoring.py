@@ -3,7 +3,7 @@ import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from constants import SCORE_TABLE, COLS, ROWS
-import main as _m   # import module-level constants without running main()
+import game_constants as _m
 
 
 # ── score table ───────────────────────────────────────────────────────────────
