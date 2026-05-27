@@ -1,4 +1,5 @@
 import colorsys
+import math
 import random
 import pygame
 import sys
@@ -144,6 +145,31 @@ def draw_board(surf: pygame.Surface, board: Board,
             else:
                 pygame.draw.rect(surf, _BOARD_CELL,
                                  (px, py, CELL_SIZE - 1, CELL_SIZE - 1))
+
+
+def _draw_danger_line(surf: pygame.Surface) -> None:
+    """Horizontal warning line at the row-10 boundary.
+
+    Shown when any filled cell has entered the top 10 rows — the same
+    threshold that triggers tier-1 tension music.  A slow sine-wave pulse
+    keeps it visually distinct from static board elements without being
+    distracting during normal play.
+    """
+    y = 10 * CELL_SIZE   # pixel y of the row-10 top edge
+    t = pygame.time.get_ticks()
+
+    # Smooth pulse: full brightness when sin=1, 60 % when sin=-1 (~2.5 Hz)
+    pulse = 0.5 + 0.5 * math.sin(t * 0.016)
+    r     = 255
+    gb    = int(20 + 30 * pulse)
+    col   = (r, gb, gb)
+
+    # 2 px core line
+    pygame.draw.line(surf, col, (0, y),     (BOARD_WIDTH - 1, y),     2)
+    # 1 px glow fringe — top and bottom of the core line
+    glow = (int(r * 0.28), int(gb * 0.28), int(gb * 0.28))
+    pygame.draw.line(surf, glow, (0, y - 1), (BOARD_WIDTH - 1, y - 1), 1)
+    pygame.draw.line(surf, glow, (0, y + 2), (BOARD_WIDTH - 1, y + 2), 1)
 
 
 def draw_piece(surf: pygame.Surface, piece: Piece) -> None:
@@ -650,6 +676,7 @@ def main():
     shake_timer:    int  = 0
     hd_flash_timer: int  = 0
     clear_cells:    list = []
+    danger:         bool = False   # True when any block occupies the top-10 rows
 
     def _spawn_next():
         nonlocal current, next_piece
@@ -918,7 +945,9 @@ def main():
                         current.x += das_dir
                         audio.play('move')
 
-        # ── danger detection → tier-1 tension music ──────────────────────────
+        # ── danger detection → tier-1 tension music + warning line ──────────
+        # Row indices 0-9 are the top half of the board.  Any filled cell there
+        # triggers tension mode; clearing back below row 10 releases it.
         if state in (PLAYING, CLEARING):
             danger = any(any(row) for row in board.grid[:10])
             music_game.set_danger(danger)
@@ -1005,6 +1034,11 @@ def main():
             fo = (clear_flash_idx % 2 == 0) if state == CLEARING else False
             fq = (clear_count == 4) if state == CLEARING else False
             draw_board(bsurf, board, flash_rows=fr, flash_on=fo, flash_quad=fq)
+
+            # Danger warning line — drawn over the board but under the live piece
+            # so the player can still see the boundary while actively placing blocks.
+            if danger and state in (PLAYING, CLEARING, PAUSED):
+                _draw_danger_line(bsurf)
 
             if state in (PLAYING, PAUSED):
                 draw_ghost(bsurf, board, current)
