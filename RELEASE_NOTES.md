@@ -1,4 +1,148 @@
-# T3TR1S — Release Notes
+# RETRIS — Release Notes
+
+---
+
+## v1.10.3 — Game renamed to RETRIS
+*2026-05-27*
+
+### Changed
+- Game title changed from **T3TR1S** to **RETRIS** (retro + tetris) throughout:
+  window caption, crash window, GAME OVER letter animation, all in-game text,
+  and all documentation.
+- The 4-line clear event renamed from **TETRIS!** to **RETRIS!** — the game's
+  own term for a quad clear. B2B RETRIS! and RETRIS×RETRIS! updated to match.
+- Post-game stat label updated to RETRIS! to match.
+
+---
+
+## v1.10.2 — Demo label: "WOW" renamed to "BOARD CLEAR"
+*2026-05-27*
+
+### Changed
+- Demo scenario label "WOW! — Perfect Clear" renamed to "BOARD CLEAR! — Perfect Clear"
+  so players understand what event just occurred without knowing internal terminology.
+
+---
+
+## v1.10.1 — Demo Polish: Tile Tinting, Color Clear Board, Shorter Pauses
+*2026-05-27*
+
+### Changed
+- **Demo scenario pause times halved** — wait durations reduced from 2.8–4.5 s to
+  1.4–2.5 s. Transitions feel brisk instead of stalling.
+- **COLOR CLEAR demo board redesigned** — the trigger row (row 19) is still all cyan
+  except the gap column, but rows 8–18 are now scattered with mixed colors (~55 %
+  density in lower rows, ~28 % higher up) with ~32 % of those cells being cyan.
+  When the I piece fills the gap and fires the Color Clear, the board-wide cyan
+  explosion is visually obvious rather than ambiguous.
+- **Tile tint blending added** — `_apply_palette` in `sprites.py` now derives a
+  directional color tint from each theme's board-cell color (`cell_bg × 10`, capped
+  at 255) and blends it into the tile at 18 %. Combined with expanded brightness
+  factor range (0.75–1.00, up from 0.88–1.00), tile colors now visibly shift per
+  theme — Deep Violet pieces lean purple, Crimson Void leans red/dark, Neon Magenta
+  shifts toward magenta and noticeably dims.
+- **LEVEL_THEMES tile factors** updated: range expanded from 0.88–1.00 to 0.75–1.00.
+  Theme 7 (Neon Magenta) at 0.75 is the darkest; theme 1 (Midnight Blue) stays at
+  1.00 as the baseline.
+
+### Tests
+- 87 tests passing.
+
+---
+
+## v1.10.0 — Level Themes, Demo Mode, Odometer Score, Level-Up Cascade
+*2026-05-27*
+
+### Added
+- **10 distinct level themes** — every level gets its own board background color, grid
+  line color, and tile brightness factor. Themes cycle every 10 levels (level 11 → theme 1
+  again). Names: Midnight Blue, Deep Violet, Forest Deep, Abyssal Teal, Crimson Void,
+  Ember, Neon Magenta, Deep Emerald, Cosmic Deep, Solar Dusk.
+- **Level-up visual overlay** — large "LEVEL N" text centered on the board, with a pulsing
+  themed border flash, on every level increment. Displayed for ~2.8 s.
+- **Level-up fanfare** — replaced the 3-beep arpeggio with a full ascending C major scale
+  fanfare (~700 ms): sweep → C5 → E5 → G5 → C6 → E6 → C7.
+- **Level-up triggers Full Cascade** — every level-up forces a cascade pass after the next
+  line clear, giving each level-up a kinetic payoff regardless of current board state.
+- **"NEXT LEVEL IN X lines" sidebar countdown** — shows how many more lines until the next
+  level increment. Replaces the removed speed-reset countdown.
+- **Odometer score display** — SCORE and BEST rendered as 8-digit pinball-style scrolling
+  boxes. Each digit scrolls upward when it changes (180 ms animation per digit). Score
+  display chases `gs.score` at 8 % per frame with a 150 pt/frame floor.
+- **Demo mode** — press `D` at the menu (or wait 60 s of idle) to enter a pre-scripted
+  attract sequence. Cycles through 7 scenarios: 1×, 2×, 3× line clear, Tetris, Color Clear,
+  WOW (Perfect Clear), Full Cascade. A bot places pieces automatically. "DEMO" overlay +
+  scenario label displayed on board. `Space` or `Esc` exits back to menu.
+- **Music sequence starts at tier 1** — game music now begins from sparse bass (tier 1),
+  so higher tiers feel earned as the sequence progresses.
+
+### Removed
+- **Score-based speed-reset system** — `SPEED_RESET_INTERVAL`, `CASCADE_INTERVAL_GROWTH`,
+  `reset_bonus_mult`, `next_speed_reset`, `speed_reset_count`, `speed_reset_flash_timer`,
+  and `full_cascade_mode` are all gone. Speed tier still increases with level, but there
+  are no threshold resets.
+
+### Changed
+- Level system: `level = lines_cleared // 10 + 1` — every 10 lines = 1 level up.
+- `palette_phase` parameter throughout the codebase now carries `(level - 1) % 10` (0–9
+  level theme index), not the old 6-phase darkening counter.
+- Cascade scoring simplified: bonus = `500 × (cascade_level + 1)`.
+
+### Tests
+- Removed `test_reset_mult_grows_by_point_one` and `test_cascade_interval_grows`
+  (both referenced deleted constants). **70 tests passing.**
+
+---
+
+## v1.9.1 — Crash Handler, Debug Sequence, Expanded Tests, CI/CD
+*2026-05-27*
+
+### Added
+- **Crash handler** (`crash_handler.py`) — any unhandled exception writes two log files
+  (`crash_YYYYMMDD_HHMMSS.log` + `crash_latest.log`) alongside `main.py`, prints the full
+  traceback to stderr, and opens a pygame crash window showing the error message and log
+  path. Game exits cleanly with code 1.
+- **Admin debug crash sequence** — typing `b`→`u`→`g` during gameplay deliberately raises
+  a `RuntimeError` through the crash handler, exercising the full pipeline (log write +
+  crash window) without requiring a real crash. Sequence tracker lives in `AppState._debug_seq`.
+- **Expanded test suite** — 30 integration tests added in `tests/test_game_logic.py`
+  covering `spawn_next`, `do_hold`, `start_new_game`, `end_game`, `reset_lock`, `do_lock`,
+  and `debug_clear_board`. Total: **72 passing tests**.
+- **GitHub Actions CI** (`.github/workflows/ci.yml`) — runs `pytest tests/ -q` headlessly
+  (SDL dummy drivers) on every push to `development` and on every PR targeting `main`.
+  After a green CI run a second job auto-opens a `development → main` PR if none exists.
+- **Development branch workflow** — all work targets the `development` branch. `main` is
+  protected; direct pushes are blocked and PRs require CI to pass before merge.
+
+### Changed
+- `crash_*.log` and `crash_latest.log` added to `.gitignore`.
+
+---
+
+## v1.9.0 — Multi-Module Architecture Refactor
+*2026-05-27*
+
+### Changed
+- **main.py split into 7 focused modules** — a six-phase architectural refactor
+  reduces main.py from ~2,148 lines to 589. Logic, rendering, input, and state are now
+  in separate, independently-importable files.
+- **`game_constants.py`** — all gameplay-tuning constants (DAS, lock delay, scoring
+  tables, kick tables, popup styles). Zero Pygame dependency; safe in unit tests.
+- **`rotation.py`** — SRS wall-kick engine and T-spin corner detection extracted as
+  public standalone functions.
+- **`game_state.py`** — `GameState` class holds all per-session mutable state; call
+  `reset()` to start a new game. Replaces ~50 local variables scattered through `main()`.
+- **`app_state.py`** — `AppState` class holds application-shell state that persists
+  across game sessions (display surfaces, audio volumes, DAS config, leaderboard cache).
+  Also owns all state-machine string constants.
+- **`renderer.py`** — every `draw_*` function, the font cache, and rendering-only
+  constants. Imported into `main.py`; never imports from `main.py`.
+- **`game_logic.py`** — `spawn_next`, `do_hold`, `start_new_game`, `end_game`,
+  `reset_lock`, `do_lock`, `debug_clear_board`. Former closures with `nonlocal`;
+  now standalone functions taking explicit `(gs, app)` parameters.
+- **`input_handler.py`** — full pygame event dispatch and DAS auto-repeat in a single
+  `handle_input(gs, app, dt)` call. Owns `MUSIC_END` and `INITIALS_CHARS` constants.
+- Test suite: 42/42 tests pass throughout the refactor.
 
 ---
 

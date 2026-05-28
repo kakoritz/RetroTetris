@@ -1,6 +1,6 @@
-# T3TR1S  *by kakoritz*
+# RETRIS  *by kakoritz*
 
-A hand-engineered NES-style Tetris clone written from scratch in Python and Pygame.  
+A hand-engineered NES-style block-stacking game written from scratch in Python and Pygame.  
 No sprite sheets. No audio files. No game engine. Every pixel, sound, and note is
 synthesised at runtime from first principles.
 
@@ -51,19 +51,19 @@ persisted across sessions in `config.json`. Ghost-piece opacity is also persiste
 
 - All 7 classic tetrominoes with NES-palette colours
 - **7-bag randomiser** — every piece type appears once per bag before repeating; no droughts
-- **SRS wall kicks** — full Tetris Guideline kick tables for JLSZT and I pieces (5 tests each)
+- **SRS wall kicks** — full SRS kick tables for JLSZT and I pieces (5 tests each)
 - **Lock delay** — 500 ms grace period after landing; move or rotate resets the clock (15-reset cap)
 - **Hold piece** — press `C` to stash the current piece; swap back at any time (once per piece)
 - **T-spin detection** — 3-corner rule; full T-spin and mini both detected and scored separately
-- **Back-to-back bonus** — consecutive Tetrises or T-spins earn 1.5× score on the difficult clear
+- **Back-to-back bonus** — consecutive RETRIS or T-spins earn 1.5× score on the difficult clear
 - **Combo counter** — consecutive line clears stack a 50 × combo × (level + 1) bonus per clear
 - **20G gravity** — at level 20, pieces drop to the floor instantly on each gravity tick
 - CW and CCW rotation
 - DAS (Delayed Auto-Shift) — tap to move, hold to auto-repeat
 - Ghost piece with adjustable opacity (0 % invisible → 100 % solid, default 15 %)
-- Line-clear flash — escalates from white (single) to gold (Tetris)
+- Line-clear flash — escalates from white (single) to gold (RETRIS)
 - Particle burst on every line clear
-- Screen shake on a 4-line Tetris clear
+- Screen shake on a 4-line RETRIS clear
 - Hard-drop impact flash
 - **10-tier layered chiptune soundtrack** — procedurally synthesised, no audio files
 - **Adaptive music** — switches tiers based on board state in real time
@@ -71,17 +71,19 @@ persisted across sessions in `config.json`. Ghost-piece opacity is also persiste
 - **Danger bonus** — rows cleared above the red line score 2× with floating ×2 labels
 - **WOW / perfect clear** — clears that leave the board completely empty trigger a
   full-board rainbow flash, a large centred popup, score bonus, and max particles
-- Per-piece spawn tones + move / rotate / lock / hard-drop SFX
+- Per-piece spawn tones + move / rotate / lock / hard-drop / **level-up** SFX
 - **5-piece next preview** — NEXT box shows piece 1 large + pieces 2–5 in a compact 2×2 mini grid below
 - **Score-delta labels** — a coloured "+N" floats up from the board on every scored event (T-spin = purple, B2B = gold, cascade = cyan, danger = orange)
 - **GRAVITY 20G alert** — popup fires the moment level 20 is reached so the mode change is never a surprise
-- **Board-centred popups** — all clear feedback (Nice! → Great! → Fantastic! → TETRIS! → T-SPIN! → etc.) floats up from the play area, not the sidebar
+- **Board-centred popups** — all clear feedback (Nice! → Great! → Fantastic! → RETRIS! → T-SPIN! → etc.) floats up from the play area, not the sidebar
 - **Scaled particle explosions** — burst intensity grows with row count (1→2→3→4 lines)
-- **Cascade gravity** — floating blocks settle after every line clear; Full Board Cascade mode (animated domino wave + cascade scoring) toggles on at each speed reset
+- **Cascade gravity** — floating blocks settle after every line clear; Full Board Cascade mode fires on every level-up (animated domino wave + cascade scoring)
 - **Color Clear** — when a cleared row is all the same color, every remaining cell of that color on the board explodes in a cascade. Rainbow "COLOR CLEAR!" popup + +5,000 bonus
-- **Speed reset** — fall speed resets to tier 1 each time the threshold is crossed; threshold starts at 10,000 pts and grows by 5,000 per reset; score multiplier increases +0.1×; "FULL CASCADE IN N pts" countdown in sidebar
-- **Post-game stats** — GAME OVER screen shows time played, pieces placed, Tetrises, T-spins, best combo
-- **Palette shift** — tiles darken 10 % every 10 levels, cycling through 6 phases
+- **10 level themes** — every level has a distinct board background, grid color, and tile brightness. Themes cycle every 10 levels. Level-up triggers a large centered "LEVEL N" overlay and an ascending fanfare.
+- **Odometer score display** — SCORE and BEST rendered as 8-digit scrolling digit boxes. Each digit rolls upward when it changes, pinball-style.
+- **"NEXT LEVEL IN X lines"** — sidebar countdown showing lines until the next level increment.
+- **Demo mode** — press `D` at the menu or wait 60 s idle to watch 7 pre-scripted scenarios cycle automatically (1×–4× line clear, Color Clear, Board Clear, Full Cascade). Each scenario pre-positions a vertical I piece above a random gap column and drops it; gap and level theme randomise every run. `Space` or `Esc` exits.
+- **Post-game stats** — GAME OVER screen shows time played, pieces placed, RETRIS count, T-spins, best combo
 - **Placement score** — +10 pts per piece placed
 - **HOLD box glow** — slow cyan pulse when a piece is queued so you never forget it's there
 - **NEXT box flash** — brief white outline when the next piece updates
@@ -103,7 +105,7 @@ All scores are multiplied by `(level + 1)`.
 | Single (1 line) | 40 | 80 |
 | Double (2 lines) | 100 | 200 |
 | Triple (3 lines) | 300 | 600 |
-| Tetris (4 lines) | 1,200 | 2,400 |
+| RETRIS (4 lines) | 1,200 | 2,400 |
 | WOW bonus (perfect clear) | +5,000 | — |
 | T-spin single | 800 | 1,600 |
 | T-spin double | 1,200 | 2,400 |
@@ -111,7 +113,7 @@ All scores are multiplied by `(level + 1)`.
 | T-spin mini single | 200 | 400 |
 | T-spin mini double | 400 | 800 |
 
-**Back-to-back bonus:** consecutive Tetrises or T-spins earn 1.5× on the difficult clear score.
+**Back-to-back bonus:** consecutive RETRIS or T-spins earn 1.5× on the difficult clear score.
 
 **Combo bonus:** `50 × combo count × (level + 1)` stacked on top for each consecutive clear.
 First clear in a row: no bonus. Second: 50 × (level + 1). Third: 100 × (level + 1), etc.
@@ -145,6 +147,7 @@ python3 main.py
 | Key | Action |
 |-----|--------|
 | `Space` | Start game |
+| `D` | Demo mode (or auto-triggers after 60 s idle) |
 | `T` | Music Preview |
 | `S` | Settings |
 | `H` | Leaderboard |
@@ -210,26 +213,35 @@ pip install pytest
 python3 -m pytest tests/ -v
 ```
 
-42 tests covering board logic (collision, clearing, cascade gravity, color removal) and scoring constants.
+70 tests covering board logic (collision, clearing, cascade gravity, color removal), scoring constants, and game_logic.py integration (spawn, hold, lock, new-game, end-game, reset-lock, debug-clear).
 
 ---
 
 ## Project structure
 
 ```
-main.py           game loop, state machine, all rendering
-board.py          10×20 grid, collision detection, line clearing
-piece.py          tetromino shapes, CW/CCW rotation matrices
-constants.py      grid geometry, NES colour palette, scoring table, fall-speed curve
+main.py           bootstrap + frame body — gravity, game-over anim, draw
+game_state.py     GameState — all per-session mutable state; reset() to start new game
+app_state.py      AppState — cross-session shell state + state-machine string constants
+game_logic.py     spawn_next, do_hold, do_lock, tick_clearing, tick_cascading, etc.
+input_handler.py  event dispatch + DAS auto-repeat (handle_input)
+renderer.py       all draw_* functions, font cache, rendering constants
+rotation.py       SRS wall-kick engine and T-spin corner detection
+game_constants.py gameplay-tuning constants — zero Pygame dependency, safe in unit tests
+board.py          10×20 grid, collision detection, line clearing, cascade gravity
+piece.py          tetromino shapes, CW/CCW rotation matrices, 7-bag randomiser
+constants.py      grid geometry, NES colour palette, scoring table, fall-speed curve, level themes
 sprites.py        procedural NES-style block and ghost surfaces (cached per colour + opacity)
 audio.py          procedural SFX via PCM synthesis (sawtooth + square oscillators)
 music_game.py     10-tier layered chiptune engine (adaptive, sequence-driven)
 music.py          standalone 32-bar chiptune composition (menu music)
+demo.py           attract/demo mode — 7 scripted scenarios, simple placement bot
 particles.py      particle burst system for line clears
 game_over_anim.py per-block physics animation for the GAME OVER sequence
+crash_handler.py  unhandled-exception logger + pygame crash window
 highscore.py      JSON-backed top-10 persistence
 config.py         settings persistence (scale, ghost opacity, DAS preset → config.json)
-tests/            pytest unit tests — board logic and scoring (42 tests)
+tests/            pytest unit tests — board, scoring, game_logic (70 tests)
 ```
 
 ---

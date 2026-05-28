@@ -1,3 +1,9 @@
+"""
+board.py — 10×20 grid, collision detection, line clearing, and cascade gravity.
+
+grid[row][col] stores the color_id of the placed block (0 = empty).
+Row 0 is the top of the board; row ROWS-1 is the floor.
+"""
 from constants import COLS, ROWS
 from piece import Piece
 
@@ -8,6 +14,11 @@ class Board:
 
     def is_valid(self, piece: Piece, dx: int = 0, dy: int = 0,
                  shape: list[list[int]] | None = None) -> bool:
+        """Return True if the piece (optionally offset/rotated) fits on the board.
+
+        dx/dy are trial offsets; shape overrides piece.shape for rotation tests.
+        Cells above row 0 (y < 0) are allowed — pieces spawn partially off-screen.
+        """
         s = shape if shape is not None else piece.shape
         for row_i, row in enumerate(s):
             for col_i, val in enumerate(row):
@@ -22,6 +33,7 @@ class Board:
         return True
 
     def place(self, piece: Piece) -> None:
+        """Stamp the piece's color IDs into the grid at its current position."""
         for row_i, row in enumerate(piece.shape):
             for col_i, val in enumerate(row):
                 if val:
@@ -32,6 +44,7 @@ class Board:
         return [i for i, row in enumerate(self.grid) if all(row)]
 
     def clear_lines(self) -> int:
+        """Remove all full rows, shift remaining rows down, return clear count."""
         full = self.full_rows()
         for i in full:
             self.grid.pop(i)
@@ -39,6 +52,7 @@ class Board:
         return len(full)
 
     def ghost_y(self, piece: Piece) -> int:
+        """Return the lowest y the piece can occupy without collision (ghost position)."""
         y = piece.y
         while self.is_valid(piece, dy=y - piece.y + 1):
             y += 1

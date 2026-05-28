@@ -1,13 +1,13 @@
-# T3TR1S — Product Design Document
+# RETRIS — Product Design Document
 
-**Project:** T3TR1S  
+**Project:** RETRIS  
 **Repo:** [github.com/kakoritz/RetroTetris](https://github.com/kakoritz/RetroTetris)
 
 ---
 
 ## Overview
 
-T3TR1S is a hand-built NES-style Tetris clone with no external assets. Every visual,
+RETRIS is a hand-built NES-style block-stacking game with no external assets. Every visual,
 sound effect, and note is generated procedurally at runtime. The goal was not to
 reproduce a Tetris clone from a tutorial — it was to build something that *feels* right
 from the inside out: the right weight, the right sound, the right feedback, the right
@@ -17,7 +17,7 @@ tension. Every decision in this document exists in service of that feel.
 
 ## 1. Identity & Branding
 
-The game title is **T3TR1S**. The byline reads *"by kakoritz"* — small, beneath the
+The game title is **RETRIS**. The byline reads *"by kakoritz"* — small, beneath the
 title, not competing with it. The work stands first; credit is present but not loud.
 
 The visual language is NES-era: dark background, saturated tetromino colours, a
@@ -42,13 +42,14 @@ preview screen is the design tool for refining it.
 
 ### 2.2 Playback sequence
 
-The in-game music follows a curated sequence rather than a straight ascending
-progression:
+The in-game music starts at tier 1 (sparse bass pulse only) so higher tiers feel earned
+rather than expected. The sequence is:
 
-> Tier 4 × 2 loops → Tier 5 × 2 → Tier 7 × 1 → Tier 8 × 1 → Tier 9 × 1 → Tier 6 × 2 → repeat
+> Tier 1 × 3 loops → Tier 2 × 2 → Tier 3 × 2 → Tier 4 × 2 → Tier 5 × 2 → Tier 7 × 1 → Tier 8 × 1 → Tier 9 × 1 → Tier 6 × 2 → repeat
 
-Tier 6 appearing after tier 9 is deliberate — a step back in intensity before the loop
-resets. The sequence reads as a composed arc, not a level counter.
+Starting sparse and building rewards continued play with a richer soundscape. Tier 6
+appearing after tier 9 is deliberate — a step back in intensity before the loop resets.
+The sequence reads as a composed arc, not a level counter.
 
 ### 2.3 Danger mode
 
@@ -124,7 +125,7 @@ entire play area lights up. A plain white overlay was explicitly not the target.
 
 ## 4. Scoring System
 
-All line-clear scores are multiplied by `(level + 1)` × `reset_bonus_mult` × danger multiplier.
+All line-clear scores are multiplied by `(level + 1)` × danger multiplier.
 
 | Event | Base points | In danger zone |
 |-------|------------|----------------|
@@ -145,23 +146,25 @@ All line-clear scores are multiplied by `(level + 1)` × `reset_bonus_mult` × d
 **Combo:** `50 × combo × (level + 1)` stacked per consecutive clear.
 
 **Cascade multiplier:** each cascade chain pass earns 2× → 3× → … on subsequent clears.
-A Tetris immediately followed by a cascade Tetris triggers **TETRIS×TETRIS** at 4× with a
+A Tetris immediately followed by a cascade Tetris triggers **RETRIS×RETRIS** at 4× with a
 board-centred rainbow popup.
 
-**Speed reset multiplier:** `reset_bonus_mult` starts at 1.0 and increases +0.1 per reset,
-so continued play at speed is meaningfully rewarded.
 
 Each tier of clear is meaningfully more valuable than the last. The danger zone
 multiplier transforms the top half of the board from a zone to avoid into a zone with
 real upside. The WOW bonus is a capstone reward for an extremely rare feat.
 
-### 4.1 Speed reset
+### 4.1 Level progression
 
-The fall-speed tier resets to 1 each time the player crosses a threshold. The threshold
-starts at 10,000 points and grows by 5,000 per reset (1st = 10k, 2nd = 15k, 3rd = 20k, …),
-keeping the countdown meaningful as score multipliers accumulate. The sidebar shows a
-"FULL CASCADE IN N pts" countdown that turns orange below 2,000 and red below 500 — a
-persistent tension driver. Each reset also toggles Full Board Cascade mode on or off.
+Every 10 lines cleared advances the level by 1. Level drives the fall-speed tier and
+the scoring multiplier `(level + 1)`. The sidebar shows a "NEXT LEVEL IN X lines"
+countdown so the player always knows how close the next level-up is.
+
+On each level-up:
+- Speed tier increments (up to tier 20)
+- A large "LEVEL N" overlay with a pulsing themed border appears on the board for ~2.8 s
+- A full ascending C-major scale fanfare plays
+- The next line clear forces Full Board Cascade mode (animated domino wave)
 
 ### 4.3 Score-delta feedback
 
@@ -185,6 +188,41 @@ A Color Clear requires a full row where all 10 cells are the same tetromino type
 uncommon enough to feel rare, achievable enough to be a legitimate strategy.
 
 ---
+
+### 4.2 Level themes
+
+Each of the 10 levels in a cycle has a distinct visual theme — a named tuple of
+`(board_cell_color, grid_line_color, tile_brightness_factor)`:
+
+| Theme # | Name | Board bg | Grid | Tile factor |
+|---------|------|----------|------|-------------|
+| 1 | Midnight Blue | (5, 5, 18) | (0, 38, 65) | 1.00 |
+| 2 | Deep Violet | (12, 5, 20) | (48, 0, 72) | 0.88 |
+| 3 | Forest Deep | (5, 16, 5) | (0, 52, 20) | 0.92 |
+| 4 | Abyssal Teal | (5, 14, 16) | (0, 44, 56) | 0.89 |
+| 5 | Crimson Void | (20, 4, 4) | (68, 10, 10) | 0.78 |
+| 6 | Ember | (20, 10, 2) | (68, 32, 0) | 0.90 |
+| 7 | Neon Magenta | (16, 4, 16) | (58, 0, 58) | 0.75 |
+| 8 | Deep Emerald | (4, 18, 10) | (8, 60, 30) | 0.93 |
+| 9 | Cosmic Deep | (5, 8, 22) | (14, 22, 72) | 0.95 |
+| 10 | Solar Dusk | (20, 14, 2) | (68, 46, 8) | 0.83 |
+
+Theme index = `(level - 1) % 10`. Every tile — live piece, ghost, NEXT/HOLD preview —
+uses the same theme's brightness factor so the whole board reads as a coherent color world.
+
+Each theme also contributes an 18 % directional color tint derived from its `board_cell`
+color (`cell_bg × 10`, capped at 255). Pieces at theme 5 (Crimson Void) lean dark red;
+theme 7 (Neon Magenta) shifts toward magenta and dims to 75 %; theme 1 stays at full
+brightness with a neutral blue tint. The visual result is that both the background and
+the tiles change together — the whole board reads as a different color world per theme.
+
+### 4.3 Odometer score display
+
+The SCORE and BEST counters are rendered as 8-digit scrolling digit boxes. When a digit
+changes, it animates by scrolling the old digit upward and the new digit into position
+over 180 ms. The displayed value (`score_disp`) chases the real score at 8 % per frame
+with a 150 pt/frame minimum, so large score jumps read as a fast roll rather than a
+teleport. BEST is always static (faded appearance). SCORE rolls live.
 
 ### 4.4 Cascade gravity
 
@@ -269,7 +307,136 @@ not to compete visually with the live piece.
 
 ---
 
-## 7. Technical & Distribution Requirements
+## 6.5 Demo Mode
+
+Demo mode is an attract sequence that runs when the player presses `D` at the menu or
+after 60 seconds of menu idle. It cycles through 7 pre-scripted scenarios, each loading
+a specific board state and dropping a pre-positioned vertical I piece into a gap to
+trigger a game event:
+
+| Scenario | Board setup | Wait after event |
+|----------|-------------|-----------------|
+| 1× Line Clear | Row 19 filled, one gap | 1.4 s |
+| 2× Line Clear | Rows 18–19 filled, one gap | 1.4 s |
+| 3× Line Clear | Rows 17–19 filled, one gap | 1.5 s |
+| RETRIS! | Rows 16–19 filled | 1.8 s |
+| COLOR CLEAR! | Row 19 all cyan; rows 8–18 scattered mixed + cyan | 2.0 s |
+| BOARD CLEAR! — Perfect Clear | All four bottom rows filled | 2.2 s |
+| Full Cascade! | Three bottom rows + floating row 13 | 2.5 s |
+
+Per scenario, the gap column (0–9) and level theme (1–10) are randomised so each cycle
+looks different. The I piece is pre-positioned at the gap column in vertical orientation
+(`[[1],[1],[1],[1]]`, rot_state=1) and falls under gravity at 320 ms/row.
+
+For the Color Clear scenario, rows 8–18 are seeded with scattered colors (~55 % density
+near the bottom, ~28 % higher up; ~32 % of filled cells are cyan). This makes the
+board-wide cyan explosion visually obvious when the Color Clear fires.
+
+The "DEMO" label and current scenario name are overlaid on the board. `Space` or `Esc`
+returns to the menu from any demo phase.
+
+---
+
+## 7. Module Architecture (v1.9.0)
+
+The codebase is split into focused, single-responsibility modules with clean dependency
+boundaries:
+
+| Module | Responsibility | Depends on |
+|--------|---------------|------------|
+| `game_constants.py` | All tuning constants (DAS, lock, scoring, kick tables) | nothing (no Pygame) |
+| `game_state.py` | `GameState` — per-session mutable state | board, piece, game_constants |
+| `app_state.py` | `AppState` — cross-session shell state + state-machine constants | config, game_over_anim, game_constants |
+| `rotation.py` | SRS wall-kick engine, T-spin detection | audio, board, piece, constants, game_constants |
+| `game_logic.py` | spawn_next, do_hold, start_new_game, end_game, do_lock, etc. | game_state, app_state, rotation, audio, highscore, music |
+| `input_handler.py` | Event dispatch + DAS auto-repeat (`handle_input`) | game_state, app_state, game_logic, rotation, audio, config, music, music_game |
+| `renderer.py` | All draw_* functions, font cache, rendering constants | constants, board, piece, sprites, game_constants |
+| `demo.py` | Attract/demo mode — scenario definitions, bot FSM, phase management | game_state, app_state, game_logic, rotation, audio, music_game |
+| `crash_handler.py` | Unhandled exception logger + pygame crash window | stdlib only (sys, os, traceback, datetime, pygame) |
+| `main.py` | Bootstrap + frame body (gravity, clearing, cascading, draw) | everything above |
+
+### Dependency rule
+
+`game_constants.py` → no imports  
+`board.py`, `piece.py` → no game logic imports  
+`renderer.py` → no game_logic / input_handler imports  
+`game_logic.py` → no renderer / input_handler imports  
+`input_handler.py` → no renderer imports  
+`main.py` → imports from all layers  
+
+This ensures the logic layers can be tested without a display and the rendering layer
+can be replaced without touching game logic.
+
+---
+
+## 8. Error Handling & Crash Reporting
+
+### 8.1 Crash handler
+
+Any unhandled exception is caught by `crash_handler.run_with_crash_handler()`, which
+wraps `main()` at the bottom of `main.py`. On exception:
+
+1. Full traceback printed to stderr (terminal output preserved)
+2. Two log files written alongside `main.py`:
+   - `crash_YYYYMMDD_HHMMSS.log` — timestamped, never overwritten
+   - `crash_latest.log` — always the most recent crash, easy to locate
+3. A pygame crash window opens (640×420) showing the error and the log path. The window
+   waits for a keypress or close before exiting.
+4. Process exits with code 1.
+
+`SystemExit` and `KeyboardInterrupt` are re-raised without interception — these are
+normal exit paths and must not be treated as errors.
+
+The crash window resets the pygame display before opening so it works even if the game
+left the display in a bad state. All window code is wrapped in a try/except with
+`pygame.quit()` in `finally` — the window is best-effort and must not itself crash.
+
+### 8.2 Admin debug crash sequence
+
+Typing `b`→`u`→`g` during gameplay triggers a deliberate `RuntimeError` through the
+crash handler. The sequence is tracked in `AppState._debug_seq` using the same
+accumulator pattern as the 3-2-1 board-clear cheat. Purpose: verify the log files are
+written and the crash window renders correctly without waiting for a real error.
+
+The sequence is intentionally undocumented in-game.
+
+---
+
+## 9. Development Workflow
+
+### 9.1 Branching model
+
+All development targets the `development` branch. `main` is the release branch and is
+protected — direct pushes are blocked. The only path to `main` is through a pull request
+with CI passing.
+
+```
+development  →  (CI green)  →  PR  →  main
+```
+
+### 9.2 Continuous integration
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push to `development` and on
+every PR targeting `main`. The CI job:
+
+- Installs Python 3.12, pygame, numpy, pytest
+- Sets `SDL_VIDEODRIVER=dummy` and `SDL_AUDIODRIVER=dummy` so pygame initialises
+  headlessly without a display server
+- Runs `python -m pytest tests/ -q`
+
+A second job (`auto-pr`) fires after CI passes on a push to `development`. It opens a
+`development → main` PR automatically if none is already open. This keeps the PR queue
+current without requiring a manual step.
+
+### 9.3 Release protocol
+
+Before opening a PR to `main`, all five documents must be committed to `development`:
+`RELEASE_NOTES.md`, `README.md`, `DESIGN.md`, `CLAUDE_REVIEW.md`, `CLAUDE.md`. The PR
+arrives at `main` already complete — merging is the only action required.
+
+---
+
+## 10. Technical & Distribution Requirements
 
 ### 7.1 Code quality
 

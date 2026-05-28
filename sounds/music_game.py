@@ -25,12 +25,14 @@ _muted            = False
 # ── sequence definition ───────────────────────────────────────────────────────
 # Each entry: (tier, plays).  plays=2 means play twice before advancing.
 _GAME_SEQUENCE = [
-    (4, 2),
-    (5, 2),
-    (7, 1),
+    (2, 1),   # walking bass — normal gameplay floor (tier 1 reserved for danger only)
+    (3, 2),   # groove bass fills it out
+    (4, 2),   # chord movement kicks in
+    (5, 2),   # arpeggio layer arrives
+    (7, 1),   # full melody — big payoff moment
     (8, 1),
     (9, 1),
-    (6, 2),
+    (6, 2),   # chord arp interlude
 ]
 
 _seq_index = 0    # current position in _GAME_SEQUENCE
@@ -263,7 +265,7 @@ def _ensure_tier(tier: int) -> str:
     if tier not in _tier_paths:
         data = _build_tier(tier)
         path = os.path.join(tempfile.gettempdir(),
-                            f"kakoritz_t3tr1s_game_t{tier}.wav")
+                            f"kakoritz_retris_game_t{tier}.wav")
         _write_wav(data, path)
         _tier_paths[tier] = path
     return _tier_paths[tier]

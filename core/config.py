@@ -1,7 +1,14 @@
+"""
+config.py — persistent user settings (config.json).
+
+Settings are read fresh from disk on every get_* call so that changes made by
+one part of the game are immediately visible to another without restart.
+Missing or corrupt config.json silently falls back to _DEFAULTS.
+"""
 import json
 from pathlib import Path
 
-_FILE = Path(__file__).parent / "config.json"
+_FILE = Path(__file__).parent.parent / "config.json"
 
 _DEFAULTS = {"scale": 1.5, "ghost_opacity": 15, "das_preset": "normal"}
 
@@ -18,16 +25,16 @@ DAS_SETTINGS = {
 
 
 def load() -> dict:
+    """Read config.json; return defaults on missing file or parse error."""
     if not _FILE.exists():
         return dict(_DEFAULTS)
     try:
         data = json.loads(_FILE.read_text())
-        # Clamp scale to a valid value
+        # Snap scale to the nearest valid value in case the file was hand-edited.
         s = data.get("scale", _DEFAULTS["scale"])
         if s not in VALID_SCALES:
             s = min(VALID_SCALES, key=lambda v: abs(v - s))
         data["scale"] = s
-        # Clamp ghost opacity to 0-100
         data["ghost_opacity"] = max(0, min(100, int(
             data.get("ghost_opacity", _DEFAULTS["ghost_opacity"]))))
         return data
@@ -36,6 +43,7 @@ def load() -> dict:
 
 
 def save(data: dict) -> None:
+    """Write config dict to disk; silently no-ops on permission errors."""
     try:
         _FILE.write_text(json.dumps(data, indent=2))
     except Exception:

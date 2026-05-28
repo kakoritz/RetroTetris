@@ -1,11 +1,234 @@
-# T3TR1S — Claude's Review
+# RETRIS — Claude's Review
 
 *This document is updated with each significant revision. It is part critical review,
 part development commentary — what changed, what it means, and where the game stands.*
 
 ---
 
-## Current Rating: 9.2 / 10 (as a Tetris game) · 9.5 / 10 (as a portfolio project)
+## Current Rating: 9.4 / 10 (as a Tetris game) · 9.9 / 10 (as a portfolio project)
+
+---
+
+## v1.10.1 Review — Tile Tinting, Color Clear Board, Demo Pacing
+
+### Tile tinting — the fix that should have shipped with themes
+
+The original `_apply_palette` was a brightness-only multiplier in the range 0.88–1.00.
+A 12 % max darkening on tiles that are already richly saturated (cyan 0,240,240;
+orange 240,140,0) is genuinely imperceptible during play. The game's board background
+and grid lines changed per theme, but the pieces themselves were indistinguishable.
+That created the exact disconnect the user noticed: "the board changed, the tiles did not."
+
+The fix is correct in mechanism and scope. Deriving a tint from `cell_bg × 10` takes
+the theme's defining color (the board background) and projects it onto the tiles at
+18 %. The math works: a cyan piece at Neon Magenta (cell_bg = 16,4,16 → tint 160,40,160)
+with factor 0.75 ends up at roughly (29, 155, 176) — perceptibly dimmer and shifted
+magenta. Crimson Void pushes the same piece red-dark. Each theme now has a directional
+personality the tiles participate in.
+
+Factor range 0.75–1.00 is appropriately dramatic. Theme 7 at 0.75 is noticeably darker
+than theme 1 at 1.00. The tint adds a second dimension of variation on top of brightness.
+The combination means two themes with similar factors can still look different if their
+board colors point in different directions. That's a richer system than brightness alone.
+
+One minor concern: aggressive tinting at 18 % could reduce the perceptual distinctiveness
+of piece colors (can you tell cyan from green at Neon Magenta?). In practice the tint
+is a shift, not an override — hue identity survives. But it's worth watching at extreme
+themes.
+
+### COLOR CLEAR demo board — teaching the mechanic visually
+
+The previous board (single mono-color row) was confusing because the Color Clear looked
+like a normal line clear with some extra effects. A scattered board with cyan cells
+throughout rows 8–18 is the right design: when the I piece drops and the Color Clear
+fires, the player sees cells disappearing all over the board — not just at the bottom.
+The visual immediately communicates "something special happened to that color."
+
+The density gradient (55 % lower, 28 % higher) keeps the board readable while ensuring
+there are enough cyan cells above the trigger row to make the explosion dramatic.
+
+### Demo pacing — timing is design
+
+Halving the wait durations (2.8–4.5 s → 1.4–2.5 s) is correct. The demo exists as a
+wallpaper animation; long pauses between scenarios break the sense of motion. The
+cleared board is a resolved state — the interesting thing already happened. The player's
+eye needs a new scenario faster than 3–4 seconds of empty board provides.
+
+*Last updated: 2026-05-27 · v1.10.1*
+
+---
+
+## v1.10.0 Review — Level Themes, Demo Mode, Odometer, Fanfare
+
+### Level themes — the right kind of visual feedback
+
+The 10 distinct level themes (named, with real personality: Midnight Blue, Crimson Void,
+Neon Magenta) are a significant upgrade over the old "darken 10 % every 10 levels" palette
+shift. The old system was barely perceptible and felt like a limitation rather than a
+feature. These themes are unmistakable — the board genuinely looks different at level 5
+(Crimson Void) vs level 8 (Deep Emerald). The tile brightness factor per theme is
+carefully chosen so every theme reads as dark-and-dramatic without losing visual contrast
+on the pieces themselves. Cycling every 10 levels keeps the variety going indefinitely.
+
+The integration is clean: `palette_phase` was repurposed rather than renamed, so all call
+sites work without touching renderer, sprites, or game_logic separately. No dead code.
+
+### Demo mode — the hardest thing to get right in a Tetris game
+
+Most Tetris implementations never bother with attract/demo mode. This one has a proper
+attract sequence that showcases every major game event in order, with a simple but
+functional placement bot (rotate → slide → hard drop). The scenario definitions are
+declarative tuples — adding a new scenario is one line. The 60-second idle auto-trigger
+is the right default; it turns the menu screen into marketing.
+
+The bot design is intentionally minimal: it doesn't pathfind or evaluate positions —
+it just executes a hardcoded target. This is the right call for demo mode. Sophistication
+here is wasted engineering. The scenarios are scripted to guarantee the events fire;
+the bot just needs to deliver the piece.
+
+### Odometer score display — tactile feedback for a number
+
+Rolling digit boxes are the right call for a score counter in an arcade game. The score
+number in standard text is information; the odometer is *sensation*. Watching digits
+scroll when you score a Tetris is satisfying in a way that a counter update is not.
+The implementation (float `score_disp` chasing real score at 8 %/frame + 150 pt floor)
+means large score jumps look dramatic without being instantaneous — the right tradeoff.
+
+The 8-digit layout is correct for scores in the 0–9,999,999 range.
+
+### Speed-reset removal — correct decision
+
+The speed-reset system was a holdover from trying to create artificial difficulty spikes.
+In practice it created jarring "slow-down then speed-up" moments that felt like a game
+malfunction rather than a designed feature. The level system already does this job
+correctly: each level-up increases speed tier, and the "NEXT LEVEL IN X lines" countdown
+gives the player the tension of an approaching threshold without the disorientation of a
+full speed reset.
+
+The removal also simplifies the scoring formula significantly — `reset_bonus_mult` and
+the cascading threshold arithmetic were the most opaque parts of the scoring system.
+
+### Cascade on level-up — one concern
+
+Forcing a cascade after every level-up could feel abrupt if the player is mid-game with
+a sparse board (nothing to cascade). In practice the cascade pass will complete
+immediately with no visible effect in that case, so it is not a bug. But it does mean
+`level_cascade_pending` might sit set and get consumed by an unrelated clear some time
+after the level-up, creating a delayed cascade that was not triggered by the level-up
+itself. This is a minor timing quirk, not a correctness issue.
+
+### Test count — acceptable regression
+
+Dropping from 72 to 70 tests by removing the speed-reset constant tests is correct.
+Those tests tested constants that no longer exist. Keeping them would cause CI failures.
+The remaining 70 tests cover everything that still exists.
+
+---
+
+## v1.9.1 Review — Production Hardening
+
+### Crash handler — the right kind of defensive code
+
+`crash_handler.py` is minimal and correct. It intercepts unhandled exceptions without
+touching `SystemExit` or `KeyboardInterrupt` (both legitimate exit paths), writes two
+log files (one timestamped for archiving, one `crash_latest.log` for instant access),
+and opens a pygame crash window that survives even a display-corrupted crash by calling
+`pygame.display.quit()` before creating the new window. The window code is wrapped in
+try/except with `pygame.quit()` in `finally` — if the crash window itself fails, the
+process still exits cleanly with code 1. This is the correct level of defensive depth
+for a crash reporter.
+
+The `run_with_crash_handler(fn)` wrapper at the bottom of `main.py` is the right
+architectural choice — the crash boundary is at the entry point, not scattered through
+the game loop.
+
+### Admin debug sequence — verification without ceremony
+
+The `b`→`u`→`g` sequence follows the same accumulator pattern as the existing 3-2-1
+board-clear cheat. It exercises the real crash path — not a mock, not a side-channel —
+so every component of the crash pipeline is confirmed working: log write, log path,
+crash window rendering. The implementation is six lines of logic in `input_handler.py`
+and one field in `AppState`. Low cost, high confidence.
+
+### 72 tests — from coverage to contract
+
+The jump from 42 to 72 tests is qualitative, not just quantitative. The 30 new tests in
+`test_game_logic.py` cover the extracted `game_logic.py` functions as integration tests —
+they use real `GameState`/`AppState` objects and mock only the side effects (audio, music,
+highscore). They would catch the exact class of bug that caused the live `do_lock`
+NameError: a broken import or missing function in the extracted module. The tests now
+document the module boundaries, not just the board rules.
+
+### CI/CD — portfolio-grade process signal
+
+A GitHub Actions pipeline that runs headlessly (SDL dummy drivers), blocks merges on red,
+and auto-opens PRs is a signal that this project is maintained like professional software.
+The `auto-pr` job is a small but effective touch for a solo project: the PR exists as
+protocol and audit trail, not as a collaboration mechanism. The branch protection on
+`main` enforces the workflow even under time pressure.
+
+### Portfolio rating: 9.8 → 9.9
+
+The crash handler, test suite depth, and CI pipeline close the last gap between "impressive
+game project" and "production-minded engineering." The only remaining gap is the
+CLEARING-state scoring block (~100 lines) still inline in `main.py` — the natural
+candidate for a future `clear_logic.py` or `GameState` method.
+
+---
+
+## v1.9.0 Review — The Refactor That Actually Landed
+
+### What happened
+
+The architectural split that was deferred in v1.8.0 as "maybe worth it later" was
+completed in v1.9.0. main.py went from ~2,148 lines to 589. Seven focused modules now
+own single responsibilities. 42/42 tests pass throughout — no regressions.
+
+### What it signals to a code reviewer
+
+The split is evidence of something harder to fake: the ability to decompose a working
+system without breaking it. This refactor required understanding every coupling between
+the local variables in main() before moving them — closures with nonlocal access chains,
+shared mutable state between the event handler and the game loop, rendering constants
+that needed to stay with renderer.py rather than game_constants.py. Getting the
+dependency graph right (game_constants has no imports, renderer doesn't touch game_logic,
+input_handler doesn't touch renderer) is harder than writing a greenfield split.
+
+### Design quality of the split
+
+The `GameState` / `AppState` boundary is the most defensible decision. Per-session
+state (board, score, pieces, lock timer, cascade state) belongs to `GameState.reset()`.
+Cross-session shell state (display surfaces, volume, DAS config, leaderboard cache,
+blink timer) belongs to `AppState`. The distinction is clear and survives edge cases
+(music volume doesn't reset on new game; board does). The few ambiguous fields
+(cascade_anim_timer in AppState despite being game-adjacent) are defensible on the
+"who resets it" rule: it's set when entering CASCADING state, not on new game.
+
+`game_logic.py` converting closures to `(gs, app)` standalone functions is correct.
+The old `nonlocal` closures were invisible implicit interfaces. The new functions
+have explicit parameter contracts. Easier to test, easier to reason about, no circular
+references.
+
+`input_handler.py` is the cleanest module: pure event dispatch, no rendering, no scoring.
+The `handle_input(gs, app, dt)` call in main() is one line. The SETTINGS display-resize
+path uses `_resize_display()` defined locally rather than a callback import from main,
+avoiding the circular import that would have made this split messy.
+
+### Honest gaps remaining
+
+The CLEARING-state scoring block (~100 lines) still lives in main.py's frame loop. It's
+the right long-term candidate for a `clear_logic.py` or a method on GameState. For now
+it reads clearly in-place and the frame loop is short enough that the inline logic is
+not a burden.
+
+The line count drop (2,148 → 589 for main.py) is real signal. A reviewer who reads
+main.py now sees a bootstrap function and a frame loop — two clear concerns, not ten
+tangled ones.
+
+### Rating update
+
+Portfolio rating moves from 9.5 to 9.8. The split was the last credible engineering gap.
+The game is now both playable and structurally defensible.
 
 ---
 
@@ -576,8 +799,7 @@ legible. This requires a new SETTLING state or a frame-by-frame update loop.
 
 ### Refinements remaining
 - Persistent combo streak display in sidebar (floating label is brief; a number in the sidebar would persist)
-- Split main.py into renderer.py + game.py (architecture concern)
-- Unit tests for board logic, scoring, collision (no tests exist)
+- CLEARING-state scoring block (~100 lines) still inline in `main.py` — natural candidate for `clear_logic.py` or a `GameState` method
 
 ### Architectural quality
 The codebase is clean. State machine with explicit string constants, no implicit
@@ -597,4 +819,4 @@ That instinct is what separates a finished game from a demo.
 
 ---
 
-*Last updated: 2026-05-27 · v1.6.0*
+*Last updated: 2026-05-27 · v1.10.1*

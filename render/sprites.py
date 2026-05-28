@@ -3,7 +3,7 @@ Procedurally generated NES-style block sprites — no image files needed.
 All surfaces are cached on first use so they're only built once.
 """
 import pygame
-from constants import COLORS, CELL_SIZE
+from constants import COLORS, CELL_SIZE, LEVEL_THEMES
 
 _blocks: dict[int, pygame.Surface] = {}
 _ghosts: dict[int, pygame.Surface] = {}
@@ -57,12 +57,19 @@ def _build_ghost(color: tuple, size: int, opacity_pct: int) -> pygame.Surface:
     return surf
 
 
-def _apply_palette(color: tuple, phase: int) -> tuple:
-    """Darken a colour by 10 % per phase step (phase 0 = unchanged)."""
-    if phase == 0:
-        return color
-    factor = max(0.0, 1.0 - phase * 0.10)
-    return tuple(max(0, int(c * factor)) for c in color)
+def _apply_palette(color: tuple, theme_idx: int) -> tuple:
+    idx = theme_idx % len(LEVEL_THEMES)
+    cell_bg, _, factor = LEVEL_THEMES[idx]
+    r = int(color[0] * factor)
+    g = int(color[1] * factor)
+    b = int(color[2] * factor)
+    tint  = tuple(min(255, c * 10) for c in cell_bg)
+    blend = 0.18
+    return (
+        max(0, min(255, int(r * (1 - blend) + tint[0] * blend))),
+        max(0, min(255, int(g * (1 - blend) + tint[1] * blend))),
+        max(0, min(255, int(b * (1 - blend) + tint[2] * blend))),
+    )
 
 
 def get_block(color_id: int, size: int = CELL_SIZE,
