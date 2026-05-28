@@ -1,7 +1,7 @@
 # RETRIS — Product Design Document
 
 **Project:** RETRIS  
-**Repo:** [github.com/kakoritz/RetroTetris](https://github.com/kakoritz/RetroTetris)
+**Repo:** [github.com/kakoritz/retris](https://github.com/kakoritz/retris)
 
 ---
 
