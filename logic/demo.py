@@ -1,5 +1,5 @@
 """
-demo.py — attract/demo mode for T3TR1S.
+demo.py — attract/demo mode for RETRIS.
 
 Triggered by pressing D at the menu or after 60 s of menu idle.
 Cycles through 7 pre-scripted scenarios, each loading a specific board
@@ -108,7 +108,7 @@ SCENARIOS = [
     ("1× Line Clear",             _board_1line,       1400),
     ("2× Line Clear",             _board_2line,       1400),
     ("3× Line Clear",             _board_3line,       1500),
-    ("TETRIS!  —  4× Line Clear", _board_tetris,      1800),
+    ("RETRIS!  —  4× Line Clear", _board_tetris,      1800),
     ("COLOR CLEAR!",              _board_color_clear, 2000),
     ("BOARD CLEAR!  —  Perfect Clear", _board_wow,     2200),
     ("Full Cascade!",             _board_cascade,     2500),

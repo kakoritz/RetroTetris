@@ -111,7 +111,7 @@ def main():
 
     if pygame.display.get_driver() == "offscreen":
         print(
-            "\nT3TR1S: display unavailable — SDL fell back to offscreen mode.\n"
+            "\nRETRIS: display unavailable — SDL fell back to offscreen mode.\n"
             "This usually means the X server has run out of client connections\n"
             "(common when VS Code, Firefox, and Discord are all open).\n"
             "Close a few heavy apps and try again.\n"
@@ -120,7 +120,7 @@ def main():
         sys.exit(1)
 
     screen = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption("T3TR1S")
+    pygame.display.set_caption("RETRIS")
     clock = pygame.time.Clock()
     music.start()
     audio.prime()

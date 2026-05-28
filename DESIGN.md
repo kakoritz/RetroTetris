@@ -1,13 +1,13 @@
-# T3TR1S — Product Design Document
+# RETRIS — Product Design Document
 
-**Project:** T3TR1S  
+**Project:** RETRIS  
 **Repo:** [github.com/kakoritz/RetroTetris](https://github.com/kakoritz/RetroTetris)
 
 ---
 
 ## Overview
 
-T3TR1S is a hand-built NES-style Tetris clone with no external assets. Every visual,
+RETRIS is a hand-built NES-style block-stacking game with no external assets. Every visual,
 sound effect, and note is generated procedurally at runtime. The goal was not to
 reproduce a Tetris clone from a tutorial — it was to build something that *feels* right
 from the inside out: the right weight, the right sound, the right feedback, the right
@@ -17,7 +17,7 @@ tension. Every decision in this document exists in service of that feel.
 
 ## 1. Identity & Branding
 
-The game title is **T3TR1S**. The byline reads *"by kakoritz"* — small, beneath the
+The game title is **RETRIS**. The byline reads *"by kakoritz"* — small, beneath the
 title, not competing with it. The work stands first; credit is present but not loud.
 
 The visual language is NES-era: dark background, saturated tetromino colours, a
@@ -146,7 +146,7 @@ All line-clear scores are multiplied by `(level + 1)` × danger multiplier.
 **Combo:** `50 × combo × (level + 1)` stacked per consecutive clear.
 
 **Cascade multiplier:** each cascade chain pass earns 2× → 3× → … on subsequent clears.
-A Tetris immediately followed by a cascade Tetris triggers **TETRIS×TETRIS** at 4× with a
+A Tetris immediately followed by a cascade Tetris triggers **RETRIS×RETRIS** at 4× with a
 board-centred rainbow popup.
 
 
@@ -319,7 +319,7 @@ trigger a game event:
 | 1× Line Clear | Row 19 filled, one gap | 1.4 s |
 | 2× Line Clear | Rows 18–19 filled, one gap | 1.4 s |
 | 3× Line Clear | Rows 17–19 filled, one gap | 1.5 s |
-| TETRIS! | Rows 16–19 filled | 1.8 s |
+| RETRIS! | Rows 16–19 filled | 1.8 s |
 | COLOR CLEAR! | Row 19 all cyan; rows 8–18 scattered mixed + cyan | 2.0 s |
 | BOARD CLEAR! — Perfect Clear | All four bottom rows filled | 2.2 s |
 | Full Cascade! | Three bottom rows + floating row 13 | 2.5 s |

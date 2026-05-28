@@ -1,6 +1,6 @@
-# T3TR1S  *by kakoritz*
+# RETRIS  *by kakoritz*
 
-A hand-engineered NES-style Tetris clone written from scratch in Python and Pygame.  
+A hand-engineered NES-style block-stacking game written from scratch in Python and Pygame.  
 No sprite sheets. No audio files. No game engine. Every pixel, sound, and note is
 synthesised at runtime from first principles.
 
@@ -75,7 +75,7 @@ persisted across sessions in `config.json`. Ghost-piece opacity is also persiste
 - **5-piece next preview** — NEXT box shows piece 1 large + pieces 2–5 in a compact 2×2 mini grid below
 - **Score-delta labels** — a coloured "+N" floats up from the board on every scored event (T-spin = purple, B2B = gold, cascade = cyan, danger = orange)
 - **GRAVITY 20G alert** — popup fires the moment level 20 is reached so the mode change is never a surprise
-- **Board-centred popups** — all clear feedback (Nice! → Great! → Fantastic! → TETRIS! → T-SPIN! → etc.) floats up from the play area, not the sidebar
+- **Board-centred popups** — all clear feedback (Nice! → Great! → Fantastic! → RETRIS! → T-SPIN! → etc.) floats up from the play area, not the sidebar
 - **Scaled particle explosions** — burst intensity grows with row count (1→2→3→4 lines)
 - **Cascade gravity** — floating blocks settle after every line clear; Full Board Cascade mode fires on every level-up (animated domino wave + cascade scoring)
 - **Color Clear** — when a cleared row is all the same color, every remaining cell of that color on the board explodes in a cascade. Rainbow "COLOR CLEAR!" popup + +5,000 bonus
@@ -105,7 +105,7 @@ All scores are multiplied by `(level + 1)`.
 | Single (1 line) | 40 | 80 |
 | Double (2 lines) | 100 | 200 |
 | Triple (3 lines) | 300 | 600 |
-| Tetris (4 lines) | 1,200 | 2,400 |
+| RETRIS (4 lines) | 1,200 | 2,400 |
 | WOW bonus (perfect clear) | +5,000 | — |
 | T-spin single | 800 | 1,600 |
 | T-spin double | 1,200 | 2,400 |

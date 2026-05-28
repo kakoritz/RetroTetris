@@ -500,7 +500,7 @@ def draw_game_over_overlay(surf: pygame.Surface, score: int,
     stats = [
         ("TIME",     time_str),
         ("PIECES",   str(stat_pieces)),
-        ("TETRISES", str(stat_tetrises)),
+        ("RETRIS!", str(stat_tetrises)),
         ("T-SPINS",  str(stat_tspins)),
         ("BEST COMBO", f"×{stat_combo}"),
     ]
@@ -699,7 +699,7 @@ def draw_menu(surf: pygame.Surface, blink_on: bool) -> None:
     surf.fill(BG_COLOR)
     cx = SCREEN_WIDTH // 2
 
-    letters = list("T3TR1S")
+    letters = list("RETRIS")
     widths  = [_font(56).size(l)[0] for l in letters]
     x = cx - sum(widths) // 2
     for letter, color in zip(letters, _TITLE_COLORS):

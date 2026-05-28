@@ -34,7 +34,7 @@ def _write_logs(tb_text: str) -> str:
     ts       = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     stamp    = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     header   = (
-        f"T3TR1S Crash Report\n"
+        f"RETRIS Crash Report\n"
         f"{'=' * 72}\n"
         f"Time   : {stamp}\n"
         f"Python : {sys.version}\n"
@@ -64,7 +64,7 @@ def _show_crash_window(tb_text: str, log_path: str) -> None:
         pygame.display.init()
 
         screen = pygame.display.set_mode((_W, _H))
-        pygame.display.set_caption("T3TR1S — Unexpected Error")
+        pygame.display.set_caption("RETRIS — Unexpected Error")
 
         font_title  = pygame.font.SysFont("monospace", 19, bold=True)
         font_sub    = pygame.font.SysFont("monospace", 13)
@@ -89,7 +89,7 @@ def _show_crash_window(tb_text: str, log_path: str) -> None:
             screen.fill(_BG)
 
             # ── title bar ─────────────────────────────────────────────────
-            t = font_title.render("T3TR1S crashed unexpectedly", True, _RED)
+            t = font_title.render("RETRIS crashed unexpectedly", True, _RED)
             screen.blit(t, (20, 18))
 
             t = font_sub.render("A crash log has been saved to:", True, _WHITE)

@@ -1,4 +1,4 @@
-# CLAUDE.md — T3TR1S Project Instructions
+# CLAUDE.md — RETRIS Project Instructions
 
 Standard protocol for every code change, no exceptions.
 

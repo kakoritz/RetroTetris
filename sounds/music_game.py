@@ -265,7 +265,7 @@ def _ensure_tier(tier: int) -> str:
     if tier not in _tier_paths:
         data = _build_tier(tier)
         path = os.path.join(tempfile.gettempdir(),
-                            f"kakoritz_t3tr1s_game_t{tier}.wav")
+                            f"kakoritz_retris_game_t{tier}.wav")
         _write_wav(data, path)
         _tier_paths[tier] = path
     return _tier_paths[tier]

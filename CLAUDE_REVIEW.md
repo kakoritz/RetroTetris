@@ -1,4 +1,4 @@
-# T3TR1S — Claude's Review
+# RETRIS — Claude's Review
 
 *This document is updated with each significant revision. It is part critical review,
 part development commentary — what changed, what it means, and where the game stands.*

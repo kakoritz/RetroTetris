@@ -1,4 +1,17 @@
-# T3TR1S — Release Notes
+# RETRIS — Release Notes
+
+---
+
+## v1.10.3 — Game renamed to RETRIS
+*2026-05-27*
+
+### Changed
+- Game title changed from **T3TR1S** to **RETRIS** (retro + tetris) throughout:
+  window caption, crash window, GAME OVER letter animation, all in-game text,
+  and all documentation.
+- The 4-line clear event renamed from **TETRIS!** to **RETRIS!** — the game's
+  own term for a quad clear. B2B RETRIS! and RETRIS×RETRIS! updated to match.
+- Post-game stat label updated to RETRIS! to match.
 
 ---
 
