@@ -376,7 +376,7 @@ def main():
             draw_ingame_gear(app.screen)
 
             if app.state == PAUSED:
-                draw_pause(app.screen, app.blink_on)
+                draw_pause(app.screen, app.blink_on, app.pause_row)
 
         elif app.state == ENTER_NAME:
             draw_name_entry(app.screen, app.initials, app.ini_cursor, app.blink_on,

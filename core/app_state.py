@@ -96,8 +96,9 @@ class AppState:
         self.score_anim_from:   list  = [0] * 8   # digit value when animation began
         self.score_anim_offs:   list  = [0.0] * 8  # 1.0=just changed → 0.0=settled
 
-        # ── menu cursor ───────────────────────────────────────────────────────
-        self.menu_row: int = 0   # 0 = START GAME, 1 = LEADERBOARD
+        # ── menu / pause cursor ──────────────────────────────────────────────
+        self.menu_row:  int = 0   # 0 = START GAME, 1 = LEADERBOARD, 2 = SETTINGS
+        self.pause_row: int = 0   # 0 = CONTINUE, 1 = SETTINGS, 2 = QUIT
 
         # ── demo mode ─────────────────────────────────────────────────────────
         self.demo_active:           bool = False

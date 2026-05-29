@@ -49,9 +49,9 @@ def _resize_display(scale: float) -> pygame.Surface:
 
 def _handle_click(lx: float, ly: float, gs, app: AppState) -> bool:
     """Handle a tap/click at logical pixel (lx, ly). Returns True if consumed."""
-    from renderer import (MENU_START_RECT, MENU_LB_RECT, MENU_ABOUT_RECT,
-                          MENU_SETTINGS_RECT, INGAME_GEAR_RECT,
-                          PAUSE_CONTINUE_RECT, PAUSE_QUIT_RECT,
+    from renderer import (MENU_START_RECT, MENU_LB_RECT, MENU_SETTINGS_ITEM_RECT,
+                          MENU_ABOUT_RECT, INGAME_GEAR_RECT,
+                          PAUSE_CONTINUE_RECT, PAUSE_SETTINGS_RECT, PAUSE_QUIT_RECT,
                           BACK_RECT, ABOUT_GITHUB_RECT)
     pt = (int(lx), int(ly))
 
@@ -71,19 +71,21 @@ def _handle_click(lx: float, ly: float, gs, app: AppState) -> bool:
             app.lb_hi_name = app.lb_hi_score = None
             app.state      = LEADERBOARD
             return True
-        if MENU_ABOUT_RECT.collidepoint(pt):
-            app.state = ABOUT
-            return True
-        if MENU_SETTINGS_RECT.collidepoint(pt):
+        if MENU_SETTINGS_ITEM_RECT.collidepoint(pt):
+            app.menu_row              = 2
             app.settings_row          = 0
             app.settings_return_state = MENU
             app.state = SETTINGS
+            return True
+        if MENU_ABOUT_RECT.collidepoint(pt):
+            app.state = ABOUT
             return True
 
     elif app.state in (PLAYING, CLEARING, CASCADING):
         if INGAME_GEAR_RECT.collidepoint(pt):
             app.pre_pause_vol = pygame.mixer.music.get_volume()
             pygame.mixer.music.set_volume(max(0.0, app.pre_pause_vol * 0.10))
+            app.pause_row = 0
             app.state = PAUSED
             return True
 
@@ -91,6 +93,12 @@ def _handle_click(lx: float, ly: float, gs, app: AppState) -> bool:
         if INGAME_GEAR_RECT.collidepoint(pt) or PAUSE_CONTINUE_RECT.collidepoint(pt):
             pygame.mixer.music.set_volume(app.pre_pause_vol)
             app.state = PLAYING
+            return True
+        if PAUSE_SETTINGS_RECT.collidepoint(pt):
+            pygame.mixer.music.set_volume(app.pre_pause_vol)
+            app.settings_row          = 0
+            app.settings_return_state = PAUSED
+            app.state = SETTINGS
             return True
         if PAUSE_QUIT_RECT.collidepoint(pt):
             music_game.stop()
@@ -203,12 +211,16 @@ def handle_input(gs: GameState, app: AppState, dt: int) -> None:
         if app.state == MENU:
             app.menu_idle_timer = 0
             if event.key in (pygame.K_UP, pygame.K_DOWN):
-                app.menu_row = (app.menu_row + (1 if event.key == pygame.K_DOWN else -1)) % 2
+                app.menu_row = (app.menu_row + (1 if event.key == pygame.K_DOWN else -1)) % 3
             elif event.key in (pygame.K_SPACE, pygame.K_RETURN, pygame.K_KP_ENTER):
                 if app.menu_row == 1:
                     app.lb_scores  = highscore.load()
                     app.lb_hi_name = app.lb_hi_score = None
                     app.state      = LEADERBOARD
+                elif app.menu_row == 2:
+                    app.settings_row          = 0
+                    app.settings_return_state = MENU
+                    app.state = SETTINGS
                 else:
                     start_new_game(gs, app)
                     app.best = highscore.best()
@@ -262,6 +274,7 @@ def handle_input(gs: GameState, app: AppState, dt: int) -> None:
             if event.key in (pygame.K_q, pygame.K_ESCAPE):
                 app.pre_pause_vol = pygame.mixer.music.get_volume()
                 pygame.mixer.music.set_volume(max(0.0, app.pre_pause_vol * 0.10))
+                app.pause_row = 0
                 app.state = PAUSED
             elif event.key == pygame.K_LEFT:
                 app.keys_held.add(pygame.K_LEFT)
@@ -324,18 +337,24 @@ def handle_input(gs: GameState, app: AppState, dt: int) -> None:
 
         # ── PAUSED ────────────────────────────────────────────────────────────
         elif app.state == PAUSED:
-            if event.key == pygame.K_q:
-                music_game.stop()
-                music.start_menu()
-                app.state = MENU
-            elif event.key == pygame.K_SPACE:
+            if event.key in (pygame.K_UP, pygame.K_DOWN):
+                app.pause_row = (app.pause_row + (1 if event.key == pygame.K_DOWN else -1)) % 3
+            elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+                if app.pause_row == 0:
+                    pygame.mixer.music.set_volume(app.pre_pause_vol)
+                    app.state = PLAYING
+                elif app.pause_row == 1:
+                    pygame.mixer.music.set_volume(app.pre_pause_vol)
+                    app.settings_row          = 0
+                    app.settings_return_state = PAUSED
+                    app.state = SETTINGS
+                else:
+                    music_game.stop()
+                    music.start_menu()
+                    app.state = MENU
+            elif event.key == pygame.K_ESCAPE:
                 pygame.mixer.music.set_volume(app.pre_pause_vol)
                 app.state = PLAYING
-            elif event.key == pygame.K_s:
-                pygame.mixer.music.set_volume(app.pre_pause_vol)
-                app.settings_row          = 0
-                app.settings_return_state = PAUSED
-                app.state = SETTINGS
 
         # ── GAME OVER ─────────────────────────────────────────────────────────
         elif app.state == GAME_OVER:
