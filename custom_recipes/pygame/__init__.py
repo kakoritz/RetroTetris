@@ -61,13 +61,18 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
 
             # alphablit.c checks PG_ENABLE_ARM_NEON *before* including
             # simd_blitters.h, so the NEON bridge is never compiled even though
-            # simd_blitters.h declares the symbols for __aarch64__.  The CFLAGS
-            # env var doesn't reach distutils in cross-compile mode, so we
-            # inject the define directly into the Setup file that distutils
-            # actually reads.
+            # simd_blitters.h declares the symbols for __aarch64__.  The Setup
+            # file has "#define PG_ENABLE_ARM_NEON" with no value, which distutils
+            # passes as -DPG_ENABLE_ARM_NEON (empty macro); #if on an empty macro
+            # is falsy, so NEON code is skipped and the bridge symbols are missing
+            # at link time.  Replace the valueless define with "1" so the macro
+            # is truthy and the NEON bridge compiles in.
             if 'arm64' in arch.arch or 'aarch64' in arch.arch:
                 content = open("Setup").read()
-                content = content.replace("DEBUG =", "DEBUG = -DPG_ENABLE_ARM_NEON=1")
+                content = content.replace(
+                    "#define PG_ENABLE_ARM_NEON\n",
+                    "#define PG_ENABLE_ARM_NEON 1\n"
+                )
                 open("Setup", "w").write(content)
 
     def get_recipe_env(self, arch):
@@ -75,12 +80,6 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
         env['USE_SDL2'] = '1'
         env["PYGAME_CROSS_COMPILE"] = "TRUE"
         env["PYGAME_ANDROID"] = "TRUE"
-        # simd_blitters.h auto-detects __aarch64__ and declares the SSE2/NEON
-        # symbols, but alphablit.c checks PG_ENABLE_ARM_NEON *before* including
-        # that header — so without this flag alphablit.c never compiles the NEON
-        # bridge, leaving the symbols declared but undefined in surface.so.
-        if 'arm64' in arch.arch or 'aarch64' in arch.arch:
-            env['CFLAGS'] = env.get('CFLAGS', '') + ' -DPG_ENABLE_ARM_NEON=1'
         return env
 
 
