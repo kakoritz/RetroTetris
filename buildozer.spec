@@ -29,7 +29,7 @@ android.accept_sdk_license = True
 android.permissions = INTERNET
 
 # Smaller mixer buffer for lower Android audio latency
-android.meta_data = audio.buffer_size:1024
+android.meta_data = audio.buffer_size=1024
 
 # Icon — generated at runtime; placeholder satisfies the build system
 # Replace with a real 512×512 PNG if desired
