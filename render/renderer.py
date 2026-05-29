@@ -95,13 +95,14 @@ def _font(size: int, bold: bool = True) -> pygame.font.Font:
 # ── UI button hitbox rects (logical 460×600 coords) ──────────────────────────
 # Imported by input_handler.py for tap/click detection.
 
-MENU_ABOUT_RECT    = pygame.Rect( 12,  12, 40, 40)
-MENU_SETTINGS_RECT = pygame.Rect(408,  12, 40, 40)
-MENU_START_RECT    = pygame.Rect( 60, 178, 340, 44)
-MENU_LB_RECT       = pygame.Rect( 60, 226, 340, 44)
-INGAME_GEAR_RECT   = pygame.Rect(432,   4, 26, 26)
-PAUSE_CONTINUE_RECT = pygame.Rect(110, 308, 240, 50)
-PAUSE_QUIT_RECT     = pygame.Rect(110, 372, 240, 50)
+MENU_ABOUT_RECT         = pygame.Rect(434, 570, 22, 22)   # tiny "i" bottom-right
+MENU_START_RECT         = pygame.Rect( 60, 306, 340, 32)
+MENU_LB_RECT            = pygame.Rect( 60, 354, 340, 32)
+MENU_SETTINGS_ITEM_RECT = pygame.Rect( 60, 402, 340, 32)
+INGAME_GEAR_RECT        = pygame.Rect(420, 558, 34, 34)   # bottom-right thumb zone
+PAUSE_CONTINUE_RECT     = pygame.Rect(110, 258, 240, 32)
+PAUSE_SETTINGS_RECT     = pygame.Rect(110, 310, 240, 32)
+PAUSE_QUIT_RECT         = pygame.Rect(110, 362, 240, 32)
 BACK_RECT          = pygame.Rect( 10, 556, 120, 34)
 ABOUT_GITHUB_RECT  = pygame.Rect( 60, 440, 340, 30)
 
@@ -775,45 +776,53 @@ def draw_settings(surf: pygame.Surface, music_vol: int, sfx_vol: int,
 
 # ── pause overlay ─────────────────────────────────────────────────────────────
 
-def draw_pause(surf: pygame.Surface, blink_on: bool) -> None:
+def draw_pause(surf: pygame.Surface, blink_on: bool, pause_row: int = 0) -> None:
     ov = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
     ov.fill((0, 0, 0, 175))
     surf.blit(ov, (0, 0))
 
-    if blink_on:
-        word   = "PAUSE"
-        total  = len(word) * 5 * _PAUSE_CELL + (len(word) - 1) * 8
-        start_x = (SCREEN_WIDTH - total) // 2
-        top_y   = 240
-        for li, ch in enumerate(word):
-            lx   = start_x + li * (5 * _PAUSE_CELL + 8)
-            col  = _PAUSE_COLORS[li]
-            glyph = _PAUSE_GLYPHS[ch]
-            for gy in range(5):
-                for gx in range(5):
-                    if glyph[gy][gx]:
-                        x = lx + gx * _PAUSE_CELL
-                        y = top_y + gy * _PAUSE_CELL
-                        pygame.draw.rect(surf, col,
-                                         (x, y, _PAUSE_BLOCK, _PAUSE_BLOCK))
-                        bright = tuple(min(255, c + 90) for c in col)
-                        pygame.draw.line(surf, bright,
-                                         (x, y), (x + _PAUSE_BLOCK - 1, y))
-                        pygame.draw.line(surf, bright,
-                                         (x, y), (x, y + _PAUSE_BLOCK - 1))
-                        dark = tuple(max(0, c - 60) for c in col)
-                        pygame.draw.line(surf, dark,
-                                         (x + _PAUSE_BLOCK - 1, y),
-                                         (x + _PAUSE_BLOCK - 1, y + _PAUSE_BLOCK - 1))
-                        pygame.draw.line(surf, dark,
-                                         (x, y + _PAUSE_BLOCK - 1),
-                                         (x + _PAUSE_BLOCK - 1, y + _PAUSE_BLOCK - 1))
+    word    = "PAUSE"
+    total   = len(word) * 5 * _PAUSE_CELL + (len(word) - 1) * 8
+    start_x = (SCREEN_WIDTH - total) // 2
+    top_y   = 170
+    for li, ch in enumerate(word):
+        lx    = start_x + li * (5 * _PAUSE_CELL + 8)
+        col   = _PAUSE_COLORS[li]
+        glyph = _PAUSE_GLYPHS[ch]
+        for gy in range(5):
+            for gx in range(5):
+                if glyph[gy][gx]:
+                    x = lx + gx * _PAUSE_CELL
+                    y = top_y + gy * _PAUSE_CELL
+                    pygame.draw.rect(surf, col,
+                                     (x, y, _PAUSE_BLOCK, _PAUSE_BLOCK))
+                    bright = tuple(min(255, c + 90) for c in col)
+                    pygame.draw.line(surf, bright,
+                                     (x, y), (x + _PAUSE_BLOCK - 1, y))
+                    pygame.draw.line(surf, bright,
+                                     (x, y), (x, y + _PAUSE_BLOCK - 1))
+                    dark = tuple(max(0, c - 60) for c in col)
+                    pygame.draw.line(surf, dark,
+                                     (x + _PAUSE_BLOCK - 1, y),
+                                     (x + _PAUSE_BLOCK - 1, y + _PAUSE_BLOCK - 1))
+                    pygame.draw.line(surf, dark,
+                                     (x, y + _PAUSE_BLOCK - 1),
+                                     (x + _PAUSE_BLOCK - 1, y + _PAUSE_BLOCK - 1))
 
-    cx = SCREEN_WIDTH // 2
-    _draw_btn(surf, "CONTINUE",     PAUSE_CONTINUE_RECT, (60, 220, 80))
-    _draw_btn(surf, "QUIT  TO  MENU", PAUSE_QUIT_RECT,  (220, 60, 60))
-    t = _font(11, bold=False).render("SPACE  —  resume    S  —  settings", True, BORDER_COLOR)
-    surf.blit(t, (cx - t.get_width() // 2, 434))
+    cx    = SCREEN_WIDTH // 2
+    items = ["CONTINUE", "SETTINGS", "QUIT  TO  MENU"]
+    item_y = [274, 326, 378]
+    for i, (label, y) in enumerate(zip(items, item_y)):
+        selected = (i == pause_row)
+        color    = WHITE if selected else (90, 90, 90)
+        _draw_shadow_text(surf, label, 22, cx, y, color, center_x=True)
+        if selected and blink_on:
+            ax = cx - _font(22).size(label)[0] // 2 - 28
+            _draw_shadow_text(surf, ">", 22, ax, y, (255, 220, 0))
+
+    hint = _font(11, bold=False).render(
+        "UP / DOWN : select    ENTER : confirm", True, BORDER_COLOR)
+    surf.blit(hint, (cx - hint.get_width() // 2, 432))
 
 
 # ── music preview ─────────────────────────────────────────────────────────────
@@ -925,25 +934,17 @@ def draw_menu(surf: pygame.Surface, blink_on: bool, updater=None,
     surf.fill(BG_COLOR)
     cx = SCREEN_WIDTH // 2
 
-    # ── RETRIS pixel-block logo ───────────────────────────────────────────────
-    draw_retris_logo(surf, top_y=10)
+    # ── Q1 (y 0–150): RETRIS logo centered in zone ────────────────────────────
+    draw_retris_logo(surf, top_y=48)
 
-    # ── "by kakoritz" ─────────────────────────────────────────────────────────
-    t = _font(11, bold=False).render("by kakoritz", True, BORDER_COLOR)
-    surf.blit(t, (cx - t.get_width() // 2, 76))
-
-    # ── Mini tetromino parade ─────────────────────────────────────────────────
+    # ── Q2 (y 150–300): tetromino tile art ───────────────────────────────────
     slot_w = SCREEN_WIDTH // len(SHAPES)
     for i, pt in enumerate(SHAPES):
-        _draw_mini_piece(surf, SHAPES[pt], slot_w * i + slot_w // 2, 130, 16)
+        _draw_mini_piece(surf, SHAPES[pt], slot_w * i + slot_w // 2, 225, 20)
 
-    # ── ⓘ / ⚙ icon buttons ────────────────────────────────────────────────────
-    _draw_icon_circle(surf, "i", MENU_ABOUT_RECT,    (80, 200, 255))
-    _draw_icon_circle(surf, "S", MENU_SETTINGS_RECT, (180, 180, 180))
-
-    # ── NES-style selection cursor ────────────────────────────────────────────
-    items = ["START  GAME", "LEADERBOARD"]
-    item_y = [192, 240]
+    # ── Q3 (y 300–450): menu options ─────────────────────────────────────────
+    items  = ["START  GAME", "LEADERBOARD", "SETTINGS"]
+    item_y = [318, 366, 414]
 
     for i, (label, y) in enumerate(zip(items, item_y)):
         selected = (i == menu_row)
@@ -953,15 +954,21 @@ def draw_menu(surf: pygame.Surface, blink_on: bool, updater=None,
             ax = cx - _font(22).size(label)[0] // 2 - 28
             _draw_shadow_text(surf, ">", 22, ax, y, (255, 220, 0))
 
-    # ── Version + update badge ────────────────────────────────────────────────
+    # ── Q4 (y 450–600): subtle credits + tiny info button ────────────────────
     from game_constants import VERSION
-    ver_color = BORDER_COLOR
-    ver_label = f"v{VERSION}"
+    ver_color = (70, 70, 70)
+    ver_label = f"by kakoritz  •  v{VERSION}"
     if updater and updater.status == "available":
-        ver_label = f"v{VERSION}  •  v{updater.latest_version} available!"
+        ver_label = f"by kakoritz  •  v{VERSION}  •  v{updater.latest_version} available!"
         ver_color = (255, 220, 0) if blink_on else (180, 155, 0)
-    t = _font(11, bold=False).render(ver_label, True, ver_color)
-    surf.blit(t, (cx - t.get_width() // 2, SCREEN_HEIGHT - 22))
+    t = _font(10, bold=False).render(ver_label, True, ver_color)
+    surf.blit(t, (cx - t.get_width() // 2, SCREEN_HEIGHT - 20))
+
+    # tiny "i" — hidden but tappable, bottom-right corner
+    f = _font(10, bold=False)
+    ti = f.render("i", True, (70, 70, 70))
+    surf.blit(ti, (MENU_ABOUT_RECT.centerx - ti.get_width() // 2,
+                   MENU_ABOUT_RECT.centery - ti.get_height() // 2))
 
     pygame.draw.rect(surf, BORDER_COLOR, (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), 2)
 
