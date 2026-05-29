@@ -59,6 +59,17 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
             )
             open("Setup", "w").write(setup_file)
 
+            # alphablit.c checks PG_ENABLE_ARM_NEON *before* including
+            # simd_blitters.h, so the NEON bridge is never compiled even though
+            # simd_blitters.h declares the symbols for __aarch64__.  The CFLAGS
+            # env var doesn't reach distutils in cross-compile mode, so we
+            # inject the define directly into the Setup file that distutils
+            # actually reads.
+            if 'arm64' in arch.arch or 'aarch64' in arch.arch:
+                content = open("Setup").read()
+                content = content.replace("DEBUG =", "DEBUG = -DPG_ENABLE_ARM_NEON=1")
+                open("Setup", "w").write(content)
+
     def get_recipe_env(self, arch):
         env = super().get_recipe_env(arch)
         env['USE_SDL2'] = '1'
