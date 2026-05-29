@@ -41,7 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Create PR if none exists, update branch, enable auto-merge, dispatch APK build
+      - name: Create PR if none exists, enable auto-merge, then dispatch APK build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -57,14 +57,6 @@ jobs:
           else
             echo "Using existing PR #$pr"
           fi
-
-          # Update the PR branch to be up-to-date with main (required by strict
-          # branch protection). This may push a merge commit to development,
-          # triggering another CI run — that run will enable auto-merge once its
-          # test check passes, completing the merge.
-          gh pr update-branch "$pr" --rebase 2>/dev/null || \
-            gh pr update-branch "$pr" 2>/dev/null || \
-            echo "Branch already up-to-date or update not needed"
 
           # Enable auto-merge; GitHub will merge when all required checks pass.
           for i in $(seq 1 6); do
