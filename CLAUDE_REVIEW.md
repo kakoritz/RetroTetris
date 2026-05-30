@@ -9,6 +9,67 @@ part development commentary — what changed, what it means, and where the game 
 
 ---
 
+## v2.0.0 Review — Platform Architecture Split and Mobile Layout Overhaul
+
+### The layout fix — the real problem is now solved
+
+The previous touch zone was 40 % of the screen. That wasn't a styling issue; it was a
+geometry problem. The mobile canvas was 460×600 (game) + a dynamic remainder (controls),
+and the remainder happened to be enormous because the phone is taller than the game's
+aspect ratio. Pointing at button style was treating the symptom.
+
+The fix is correct: define a purpose-built canvas height (940) that leaves a fixed,
+small zone for controls. The game board is now 87 % of screen width, controls are 7 %
+of screen height each side. That's the right ratio.
+
+### The compact stats strip — good idea, first pass
+
+Moving stats to a horizontal strip at the top is the right structural decision for
+portrait mobile. The board is now fully unobstructed. The 70 px strip is tight but
+workable — `HOLD / LVL / LNS / SCORE / NEXT×2 / II` in a single row. 
+
+What it loses compared to the desktop sidebar: the 5-piece NEXT queue is reduced to 2,
+the cascade indicator and combo glow effects have no space in the strip, and the score
+odometer's visual impact is diminished in a narrow row. These are acceptable trade-offs
+for a first iteration. A future pass could make the strip slightly taller (85-90 px) and
+give the score more prominence.
+
+### CELL=40 — correct choice
+
+Desktop uses CELL=30 because the sidebar occupies 160 px of the 460 px canvas. On
+mobile with no sidebar, CELL=40 fills 400 px (87 % of 460). The board is visually
+larger and touch targets are proportionally bigger. The 30→40 scale factor of 4/3 is
+also clean — position scaling in the dual render path is exact, not approximate.
+
+### The architecture split — the right call at the right time
+
+Three renderer files with a shared core is the correct structure for a game that will
+eventually have a web portal. It keeps the desktop path completely unchanged (no
+regression risk), adds the mobile path without making main.py a mess, and gives the
+web stub a place to live with architectural documentation.
+
+The dual render path in main.py is moderately verbose but honest — there's no hidden
+switch or magic abstraction obscuring which path runs. A future cleanup could extract
+both paths into `draw_desktop_game()` and `draw_mobile_game()` functions.
+
+### Music loop fix — one-line, five sessions late
+
+Adding `DEMO` to the `MUSIC_END` state guard is a one-line fix. The bug was that
+`on_music_end()` was never called during demo mode, so when a tier finished playing the
+sequence silently stopped. It was reproducible by watching demo mode for ~15 seconds.
+The lesson: when adding a new state to the state machine, always audit every event
+handler to check if the new state should be included.
+
+### What's still not right
+
+- Game-over animation on mobile draws using desktop coordinates — blocks fall in the
+  upper-left 300×600 region of the 400×800 bsurf. Functional but visually off.
+- ENTER_NAME (initials entry) touch path not verified — no hardware test yet.
+- The stats strip piece previews at cell=9 are tiny even at 2.35× scale — may need
+  cell=11-12 for comfortable reading.
+
+---
+
 ## v1.12.0 Review — Android Touch Controls and Full-Screen Layout
 
 ### The controls redesign — the right answer, harder to find

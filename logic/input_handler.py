@@ -82,7 +82,14 @@ def _handle_click(lx: float, ly: float, gs, app: AppState) -> bool:
             return True
 
     elif app.state in (PLAYING, CLEARING, CASCADING):
-        if INGAME_GEAR_RECT.collidepoint(pt):
+        should_pause = INGAME_GEAR_RECT.collidepoint(pt)
+        if not should_pause and getattr(app, 'touch_enabled', False):
+            try:
+                from renderer_mobile import M_PAUSE_RECT
+                should_pause = M_PAUSE_RECT.collidepoint(pt)
+            except ImportError:
+                pass
+        if should_pause:
             app.pre_pause_vol = pygame.mixer.music.get_volume()
             pygame.mixer.music.set_volume(max(0.0, app.pre_pause_vol * 0.10))
             app.pause_row = 0
@@ -160,7 +167,7 @@ def handle_input(gs: GameState, app: AppState, dt: int) -> None:
             pygame.quit(); sys.exit()
 
         if (event.type == MUSIC_END
-                and app.state in (PLAYING, CLEARING, CASCADING, PAUSED)):
+                and app.state in (PLAYING, CLEARING, CASCADING, PAUSED, DEMO)):
             music_game.on_music_end()
             if app.state == PAUSED:
                 pygame.mixer.music.set_volume(app.pre_pause_vol * 0.10)
