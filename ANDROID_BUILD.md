@@ -10,8 +10,17 @@ Two paths: **CI builds** (automated, slow) and **local builds** (manual setup, t
 ```bash
 cd /path/to/retris
 ~/.buildozer-env/bin/buildozer android debug
+# Use -r to REPLACE without uninstalling — preserves highscores and config
+adb install -r bin/retris-*.apk
+```
+
+If install fails with signature mismatch (first install on this device, or CI build):
+```bash
+# Back up scores first, then reinstall
+adb pull /data/data/org.kakoritz.retris/files/highscores.json /tmp/hs_backup.json 2>/dev/null
 adb uninstall org.kakoritz.retris
 adb install bin/retris-*.apk
+adb push /tmp/hs_backup.json /data/data/org.kakoritz.retris/files/highscores.json 2>/dev/null
 ```
 
 ---
