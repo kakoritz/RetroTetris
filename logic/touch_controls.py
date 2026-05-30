@@ -28,7 +28,7 @@ _STATE_KEYS = {
     'game_over':      _KEYS_CONTINUE,
     'enter_name':     _KEYS_NAME,
     'leaderboard':    _KEYS_MENU_BTN,
-    'settings':       [pygame.K_UP, pygame.K_DOWN, pygame.K_ESCAPE],
+    'settings':       _KEYS_MENU_BTN,
     'demo':           _KEYS_MENU_BTN,
     'about':          _KEYS_MENU_BTN,
     'controls':       _KEYS_MENU_BTN,

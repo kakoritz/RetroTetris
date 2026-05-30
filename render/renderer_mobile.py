@@ -142,7 +142,7 @@ _STATE_LAYOUTS = {
     'game_over':      _LAY_CONTINUE,
     'enter_name':     _LAY_NAME,
     'leaderboard':    _LAY_MENU_BTN,
-    'settings':       _LAY_SETTINGS_NAV,
+    'settings':       _LAY_MENU_BTN,
     'about':          _LAY_MENU_BTN,
     'controls':       _LAY_MENU_BTN,
     'music_test':     _LAY_MENU_BTN,
@@ -818,13 +818,10 @@ def draw_mobile_settings(surf, music_vol, sfx_vol, ghost_opacity,
 
     pygame.draw.line(surf, _BTN_BORDER, (20, 522), (SCREEN_WIDTH-20, 522), 1)
 
-    # CONTROLS link
-    ctrl_col = YELLOW if settings_row == 4 else BORDER_COLOR
-    pygame.draw.rect(surf, _BTN_BG, _MS_CONTROLS_BTN, border_radius=8)
-    pygame.draw.rect(surf, ctrl_col, _MS_CONTROLS_BTN, 1, border_radius=8)
-    t = _font(24).render("VIEW  CONTROLS  →", True, ctrl_col)
-    surf.blit(t, (_MS_CONTROLS_BTN.centerx - t.get_width()//2,
-                  _MS_CONTROLS_BTN.centery - t.get_height()//2))
+    # CONTROLS link — plain text, no box
+    pygame.draw.line(surf, _BTN_BORDER, (20, 528), (SCREEN_WIDTH-20, 528), 1)
+    t = _font(24).render("VIEW  CONTROLS  →", True, BORDER_COLOR)
+    surf.blit(t, (20, 542))
 
 
 # ── mobile controls ───────────────────────────────────────────────────────────
