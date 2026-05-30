@@ -49,7 +49,7 @@ _CELL_SCALE  = M_CELL / CELL_SIZE
 _INFO_ZONE_Y = M_BOARD_Y + M_BOARD_H           # 750
 _BTN_ZONE_Y  = _INFO_ZONE_Y + M_INFO_H         # 850
 
-M_PAUSE_RECT = pygame.Rect(SCREEN_WIDTH - 46, 6, 40, M_STATS_H - 12)
+M_PAUSE_RECT = pygame.Rect(SCREEN_WIDTH - 52, 4, 50, M_STATS_H - 8)
 
 # HOLD box tap target in the info strip (tap = hold/swap piece)
 M_HOLD_BOX_RECT = pygame.Rect(
@@ -375,43 +375,70 @@ def draw_mobile_pause(surf, blink_on, pause_row=0):
 # ── stats strip (top, 90 px) ──────────────────────────────────────────────────
 
 def draw_mobile_stats(surf, score, lines, level, in_game=False):
-    """Stats strip: LEVEL X   [SCORE]   LINES X — bold, horizontal, fills the strip."""
+    """Stats strip: huge score centred, LVL/LNS maximised left/right, T-piece pause."""
     pygame.draw.rect(surf, _BG_STRIP, (0, 0, SCREEN_WIDTH, M_STATS_H))
     pygame.draw.line(surf, _BTN_BORDER, (0, M_STATS_H-1), (SCREEN_WIDTH, M_STATS_H-1), 1)
 
     cy = M_STATS_H // 2   # 45
 
-    def _centre_y(font_size):
-        return cy - _font(font_size).get_height() // 2
-
-    # LEVEL  X — left block
-    lbl_l = _font(18).render("LEVEL", True, _LBL_COL)
-    val_l = _font(38).render(str(level), True, BORDER_COLOR)
-    surf.blit(lbl_l, (8, cy - lbl_l.get_height() // 2 - 12))
-    surf.blit(val_l, (8, cy - val_l.get_height() // 2 + 6))
-
-    pygame.draw.line(surf, _DIV_COL, (90, 8), (90, M_STATS_H-8), 1)
-
-    # SCORE — centre, dominant yellow
-    sc_txt = _font(36).render(str(score).zfill(8), True, YELLOW)
-    sc_x   = 95
-    surf.blit(_font(15).render("SCORE", True, _LBL_COL), (sc_x, cy - 24))
-    surf.blit(sc_txt, (sc_x, cy - sc_txt.get_height() // 2 + 8))
-
-    pygame.draw.line(surf, _DIV_COL, (360, 8), (360, M_STATS_H-8), 1)
-
-    # LINES  X — right block
-    lbl_r = _font(18).render("LINES", True, _LBL_COL)
-    val_r = _font(38).render(str(lines), True, BORDER_COLOR)
-    surf.blit(lbl_r, (364, cy - lbl_r.get_height() // 2 - 12))
-    surf.blit(val_r, (364, cy - val_r.get_height() // 2 + 6))
-
+    # ── T-piece pause/menu button (far right, replaces II) ────────────────────
+    BTN_W = 50
+    btn_x = SCREEN_WIDTH - BTN_W - 2
     if in_game:
-        r = M_PAUSE_RECT
-        pygame.draw.rect(surf, _BTN_BG, r, border_radius=5)
-        pygame.draw.rect(surf, _BTN_BORDER, r, 1, border_radius=5)
-        t = _font(18).render("II", True, BORDER_COLOR)
-        surf.blit(t, (r.centerx - t.get_width()//2, r.centery - t.get_height()//2))
+        pygame.draw.rect(surf, _BTN_BG,
+                         pygame.Rect(btn_x, 4, BTN_W, M_STATS_H - 8),
+                         border_radius=5)
+        pygame.draw.rect(surf, _BTN_BORDER,
+                         pygame.Rect(btn_x, 4, BTN_W, M_STATS_H - 8),
+                         1, border_radius=5)
+        pc   = pygame.time.get_ticks() // 1200 % 7 + 1
+        cell = 9
+        blk  = get_block(pc, cell * 2)
+        T    = [(0,1),(1,0),(1,1),(1,2)]
+        ox   = btn_x + BTN_W//2 - 3*cell
+        oy   = cy - cell - 3
+        for (tr, tc) in T:
+            surf.blit(blk, (ox + tc*cell*2, oy + tr*cell*2))
+
+    avail_right = btn_x - 6   # right boundary before button
+
+    # ── LEVEL — far left ─────────────────────────────────────────────────────
+    lv_str  = str(level)
+    lv_f    = _font(50)
+    lv_t    = lv_f.render(lv_str, True, BORDER_COLOR)
+    lv_lbl  = _font(13).render("LVL", True, _LBL_COL)
+    lv_x    = 6
+    # Stack: number centred, tiny label at very bottom
+    lv_top  = cy - lv_t.get_height()//2 - 6
+    surf.blit(lv_t, (lv_x, lv_top))
+    surf.blit(lv_lbl, (lv_x + lv_t.get_width()//2 - lv_lbl.get_width()//2,
+                        lv_top + lv_t.get_height() + 1))
+    lv_right = lv_x + max(lv_t.get_width(), lv_lbl.get_width()) + 8
+
+    # ── LINES — right of button ───────────────────────────────────────────────
+    ln_str  = str(lines)
+    ln_t    = _font(50).render(ln_str, True, BORDER_COLOR)
+    ln_lbl  = _font(13).render("LNS", True, _LBL_COL)
+    ln_w    = max(ln_t.get_width(), ln_lbl.get_width())
+    ln_x    = avail_right - ln_w - 4
+    ln_top  = cy - ln_t.get_height()//2 - 6
+    surf.blit(ln_t, (ln_x + ln_w//2 - ln_t.get_width()//2, ln_top))
+    surf.blit(ln_lbl, (ln_x + ln_w//2 - ln_lbl.get_width()//2,
+                        ln_top + ln_t.get_height() + 1))
+
+    # ── SCORE — dead centre between level and lines ───────────────────────────
+    sc_area_l = lv_right
+    sc_area_r = ln_x - 4
+    sc_area_cx = (sc_area_l + sc_area_r) // 2
+    sc_avail_w = sc_area_r - sc_area_l
+
+    # Pick largest font that fits horizontally
+    for fsz in (52, 46, 40, 34):
+        sc_t = _font(fsz).render(str(score).zfill(8), True, YELLOW)
+        if sc_t.get_width() <= sc_avail_w:
+            break
+    surf.blit(sc_t, (sc_area_cx - sc_t.get_width()//2,
+                     cy - sc_t.get_height()//2))
 
 
 # ── info strip (100 px, below board) ─────────────────────────────────────────
@@ -690,15 +717,14 @@ def draw_mobile_menu(surf, blink_on, updater=None, menu_row=0):
 
     # ── menu items — large, Y-centred in bottom 2/3 ──────────────────────────
     items  = ["START  GAME", "LEADERBOARD", "SETTINGS"]
-    item_y = [430, 510, 590]
+    item_y = [400, 490, 580]
 
     for i, (label, y) in enumerate(zip(items, item_y)):
         selected = (i == menu_row)
-        color    = WHITE if selected else (75, 75, 75)
-        _draw_shadow_text(surf, label, 44, cx, y, color, center_x=True)
+        _draw_shadow_text(surf, label, 52, cx, y, WHITE, center_x=True)
         if selected and blink_on:
-            ax = cx - _font(44).size(label)[0] // 2 - 36
-            _draw_shadow_text(surf, ">", 44, ax, y, (255, 220, 0))
+            ax = cx - _font(52).size(label)[0] // 2 - 42
+            _draw_shadow_text(surf, ">", 52, ax, y, (255, 220, 0))
 
     # ── version string ────────────────────────────────────────────────────────
     ver_col = (55, 55, 55)
