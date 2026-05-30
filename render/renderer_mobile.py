@@ -51,6 +51,13 @@ _BTN_ZONE_Y  = _INFO_ZONE_Y + M_INFO_H         # 850
 
 M_PAUSE_RECT = pygame.Rect(SCREEN_WIDTH - 46, 6, 40, M_STATS_H - 12)
 
+# HOLD box tap target in the info strip (tap = hold/swap piece)
+M_HOLD_BOX_RECT = pygame.Rect(
+    SCREEN_WIDTH - M_BOARD_X - 92,   # 303
+    _INFO_ZONE_Y + 5,                 # 755
+    90, M_INFO_H - 10                 # 90×90
+)
+
 # ── colours ───────────────────────────────────────────────────────────────────
 _BG_STRIP   = (6,   6,  18)
 _BTN_BG     = (10, 10,  26)
@@ -91,9 +98,9 @@ _LAY_GAME = [
     (pygame.K_LEFT,   'left',     1, 'LEFT',   None),
     (pygame.K_DOWN,   'down',     4, 'DOWN',   None),
     (pygame.K_SPACE,  'drop',     6, 'DROP',   None),
-    (pygame.K_c,      'hold',     2, 'HOLD',   None),
     (pygame.K_UP,     'rotate',   3, 'ROTATE', None),
     (pygame.K_RIGHT,  'right',    1, 'RIGHT',  None),
+    # HOLD removed from button bar — tap the HOLD box in the info strip instead
 ]
 _LAY_MENU = [
     (pygame.K_UP,     'up_nav',   3, 'UP',     None),
@@ -455,12 +462,23 @@ def draw_mobile_info_strip(surf, piece_queue, hold_piece=None,
             sx = x_start + slot_w*(idx+1)
             pygame.draw.line(surf, _DIV_COL, (sx, zy+14), (sx, zy+M_INFO_H-14), 1)
 
-    # HOLD — right box
-    box2 = pygame.Rect(SCREEN_WIDTH - M_BOARD_X - 92, zy+5, 90, M_INFO_H-10)
+    # HOLD — right box (tappable: tap to hold/swap piece)
+    box2    = pygame.Rect(SCREEN_WIDTH - M_BOARD_X - 92, zy+5, 90, M_INFO_H-10)
+    t_ms    = pygame.time.get_ticks()
+
     if hold_has_piece:
-        glow = 0.45 + 0.45*math.sin(pygame.time.get_ticks()/285.0)
-        gc   = tuple(int(c*glow) for c in (80, 220, 255))
-        pygame.draw.rect(surf, gc, box2.inflate(2,2), 2, border_radius=4)
+        # Rainbow border pulse when piece is queued — signals "swap available"
+        h   = (t_ms / 600) % 1.0
+        r2, g2, b2 = colorsys.hsv_to_rgb(h, 1.0, 1.0)
+        gc  = (int(r2*255), int(g2*255), int(b2*255))
+        pygame.draw.rect(surf, gc, box2.inflate(4, 4), 3, border_radius=5)
+    else:
+        # Subtle color cycle when empty — "tap me to store a piece"
+        h2  = (t_ms / 1800) % 1.0
+        r2, g2, b2 = colorsys.hsv_to_rgb(h2, 0.7, 0.8)
+        gc  = (int(r2*100), int(g2*100), int(b2*100))  # dim
+        pygame.draw.rect(surf, gc, box2.inflate(2, 2), 2, border_radius=4)
+
     bc = tuple(max(c-80,0) for c in BORDER_COLOR) if hold_used else BORDER_COLOR
     pygame.draw.rect(surf, _BTN_BG, box2, border_radius=4)
     pygame.draw.rect(surf, bc, box2, 1, border_radius=4)

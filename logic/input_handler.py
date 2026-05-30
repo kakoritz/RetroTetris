@@ -82,6 +82,19 @@ def _handle_click(lx: float, ly: float, gs, app: AppState) -> bool:
             return True
 
     elif app.state in (PLAYING, CLEARING, CASCADING):
+        # Hold box tap — fires hold action directly
+        if getattr(app, 'touch_enabled', False):
+            try:
+                from renderer_mobile import M_HOLD_BOX_RECT
+                if M_HOLD_BOX_RECT.collidepoint(pt):
+                    pygame.event.post(
+                        pygame.event.Event(pygame.KEYDOWN,
+                                           key=pygame.K_c, mod=0,
+                                           unicode='', scancode=0))
+                    return True
+            except ImportError:
+                pass
+
         should_pause = INGAME_GEAR_RECT.collidepoint(pt)
         if not should_pause and getattr(app, 'touch_enabled', False):
             try:
