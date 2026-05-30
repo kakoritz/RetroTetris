@@ -370,6 +370,7 @@ def main():
 
             if _mobile:
                 # ── MOBILE rendering path ────────────────────────────────────
+                _in_demo = app.demo_active or app.state == DEMO
                 bsurf = pygame.Surface((M_BOARD_W, M_BOARD_H))
                 draw_mobile_board(bsurf, gs.board, flash_rows=fr, flash_on=fo,
                                   flash_quad=fq, wow_on=fw,
@@ -455,7 +456,6 @@ def main():
                                   M_BOARD_W + 2, M_BOARD_H + 2), 1)
 
                 # Stats + info strips — hidden during demo AND any demo substate
-                _in_demo = app.demo_active or app.state == DEMO
                 if not _in_demo:
                     draw_mobile_stats(
                         app.screen, gs.score, gs.lines, gs.level,
