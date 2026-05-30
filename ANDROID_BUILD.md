@@ -77,23 +77,23 @@ python3 -m venv ~/.buildozer-env
 ~/.buildozer-env/bin/pip install buildozer
 ```
 
-#### Step 2 — Fix the spaces-in-path issue
+#### Step 2 — Set build_dir outside the project
 
-**Critical:** python-for-android (p4a) rejects any build storage path that contains
-spaces. If your project lives under a path with spaces (e.g. `VS CODE/FirstGame`),
-the build will fail with:
-```
-ValueError: storage dir path cannot contain spaces
-```
+**Recommended:** keep the build artifacts outside the project directory, especially
+if the project lives on a NAS or network share. The build produces ~3 GB of compiled
+C/Java artifacts with thousands of small file writes — NAS latency will slow
+compilation significantly if the build dir is on a remote mount.
 
-Fix: add a `build_dir` in `buildozer.spec` pointing to a space-free location:
+Add to `[buildozer]` in buildozer.spec:
 
 ```ini
 [buildozer]
 build_dir = /home/<user>/.retris-build
 ```
 
-Or rename the project directory to remove spaces entirely (recommended long-term).
+**Also required if your project path contains spaces:** p4a rejects paths with spaces.
+`ValueError: storage dir path cannot contain spaces`
+The external build_dir solves both problems at once.
 
 #### Step 3 — First build (30–60 min)
 
