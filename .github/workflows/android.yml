@@ -41,15 +41,38 @@ jobs:
         run: pip install 'buildozer>=1.5' 'cython>=3'
 
       # Cache buildozer's entire home dir: SDK, NDK, p4a build artifacts.
-      # Key changes when buildozer.spec changes; prefix fallback restores
-      # older SDK/NDK downloads so they are not re-fetched.
+      # Key changes when buildozer.spec or custom_recipes change.
+      # v4 prefix: busts the broken v3 cache (stale surface.so without NEON fix).
+      # Falls back to older v4 builds, then to v3 builds if no v4 exists yet.
       - name: Cache buildozer downloads
         uses: actions/cache@v4
         with:
           path: ~/.buildozer
-          key: buildozer-v3-${{ hashFiles('buildozer.spec', 'custom_recipes/**') }}
+          key: buildozer-v4-${{ hashFiles('buildozer.spec', 'custom_recipes/**') }}
           restore-keys: |
+            buildozer-v4-
             buildozer-v3-
+
+      # When the cache is restored from an older entry (partial key match), the
+      # cached pygame build may predate recipe changes.  Detect this by comparing
+      # a SHA256 stamp of the recipe against the one stored inside the cache; if
+      # they differ, wipe only the pygame build artifacts so buildozer rebuilds
+      # just pygame (~10 min) without re-downloading the entire SDK/NDK/Python.
+      - name: Invalidate stale pygame build if recipe changed
+        run: |
+          RECIPE=custom_recipes/pygame/__init__.py
+          STAMP=~/.buildozer/.pygame_recipe_stamp
+          CURRENT=$(sha256sum "$RECIPE" | cut -d' ' -f1)
+          CACHED=""
+          [ -f "$STAMP" ] && CACHED=$(cat "$STAMP")
+          if [ "$CURRENT" = "$CACHED" ]; then
+            echo "pygame recipe unchanged — cached build is valid"
+          else
+            echo "pygame recipe changed ($CACHED → $CURRENT) — purging stale artifacts"
+            find ~/.buildozer -path "*/recipe-build/pygame*" -maxdepth 8 -exec rm -rf {} + 2>/dev/null || true
+            find ~/.buildozer -path "*/python-installs/*/pygame*"              2>/dev/null | xargs rm -rf 2>/dev/null || true
+          fi
+          echo "$CURRENT" > "$STAMP"
 
       - name: Build debug APK
         shell: bash
