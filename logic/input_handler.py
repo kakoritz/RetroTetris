@@ -41,9 +41,13 @@ MUSIC_END       = pygame.USEREVENT + 1
 INITIALS_CHARS  = "ABCDEFGHIJKLMNOPQRSTUVWXYZ "
 
 # ── board gesture tracker ─────────────────────────────────────────────────────
-_board_gestures: dict = {}   # finger_id → (start_lx, start_ly, dropped)
-_SWIPE_DROP_PX  = 120        # logical px downward movement = hard drop (raised — less sensitive)
-_TAP_MAX_PX     = 25         # logical px max movement to count as a tap (tighter = less accidental)
+# Tap = rotate CW | Swipe L/R = move one cell | Swipe down = hard drop
+# Bottom 10% tap = step down one cell
+_board_gestures: dict = {}   # finger_id → (start_lx, start_ly, action_fired)
+_SWIPE_DROP_PX   = 110       # px downward for hard drop
+_SWIPE_MOVE_PX   = 45        # px horizontal for one-cell move
+_TAP_MAX_PX      = 28        # max movement to count as a tap
+_BOTTOM_ZONE_PCT = 0.90      # bottom 10% of board = step-down zone
 
 
 def _post_key(evt_type: int, key: int) -> None:
@@ -52,8 +56,7 @@ def _post_key(evt_type: int, key: int) -> None:
 
 
 def _handle_board_gesture(event, app) -> bool:
-    """Track swipe-down and tap-rotate gestures on the game board area.
-    Returns True if the event was consumed as a gesture."""
+    """Board gestures: tap=rotate, swipe L/R=move, swipe down=drop."""
     if not getattr(app, 'touch_enabled', False):
         return False
     if app.state not in ('playing', 'clearing', 'cascading', 'practice'):
@@ -67,57 +70,53 @@ def _handle_board_gesture(event, app) -> bool:
     lx = (event.x * app.touch_dw - app.touch_ox) / app.touch_scale
     ly = (event.y * app.touch_dh - app.touch_oy) / app.touch_scale
 
-    # Only handle events that land on the board area
     in_board = (M_BOARD_X <= lx <= M_BOARD_X + M_BOARD_W and
                 M_BOARD_Y  <= ly <= _INFO_ZONE_Y)
 
     if event.type == pygame.FINGERDOWN:
         if in_board:
-            _board_gestures[event.finger_id] = (lx, ly, False)
-        return False   # don't consume — let other handlers see it too
+            _board_gestures[event.finger_id] = (lx, ly, None)
+        return False
 
     elif event.type == pygame.FINGERMOTION:
         if event.finger_id not in _board_gestures:
             return False
-        sx, sy, dropped = _board_gestures[event.finger_id]
-        if dropped:
+        sx, sy, fired = _board_gestures[event.finger_id]
+        if fired:
             return False
-        dy = ly - sy
         dx = lx - sx
-        if dy > _SWIPE_DROP_PX and abs(dy) > abs(dx) * 1.5:
+        dy = ly - sy
+        adx, ady = abs(dx), abs(dy)
+        # Swipe down → hard drop
+        if dy > _SWIPE_DROP_PX and ady > adx * 1.4:
             _post_key(pygame.KEYDOWN, pygame.K_SPACE)
-            _board_gestures[event.finger_id] = (sx, sy, True)  # mark as triggered
+            _board_gestures[event.finger_id] = (sx, sy, 'drop')
+            return True
+        # Swipe left or right → move one cell
+        if adx > _SWIPE_MOVE_PX and adx > ady * 1.3:
+            key = pygame.K_RIGHT if dx > 0 else pygame.K_LEFT
+            _post_key(pygame.KEYDOWN, key)
+            _post_key(pygame.KEYUP,   key)
+            _board_gestures[event.finger_id] = (sx, sy, 'move')
             return True
 
     elif event.type == pygame.FINGERUP:
         if event.finger_id not in _board_gestures:
             return False
-        sx, sy, dropped = _board_gestures.pop(event.finger_id)
-        if dropped:
+        sx, sy, fired = _board_gestures.pop(event.finger_id)
+        if fired:
             return False
-        dx = abs(lx - sx)
-        dy = abs(ly - sy)
+        dx, dy = abs(lx - sx), abs(ly - sy)
         if dx < _TAP_MAX_PX and dy < _TAP_MAX_PX:
-            # 3×2 grid zones:
-            #  left col → move left  |  top-centre → rotate  |  right col → move right
-            #                        |  bot-centre → step ↓  |
-            third    = M_BOARD_W // 3
-            rel_x    = lx - M_BOARD_X
-            board_h  = _INFO_ZONE_Y - M_BOARD_Y
-            rel_y    = ly - M_BOARD_Y
-            top_half = rel_y < board_h * 0.55   # slightly biased toward top
-
-            if rel_x < third:
-                _post_key(pygame.KEYDOWN, pygame.K_LEFT)       # left column
-                _post_key(pygame.KEYUP,   pygame.K_LEFT)
-            elif rel_x > third * 2:
-                _post_key(pygame.KEYDOWN, pygame.K_RIGHT)      # right column
-                _post_key(pygame.KEYUP,   pygame.K_RIGHT)
-            elif top_half:
-                _post_key(pygame.KEYDOWN, pygame.K_UP)         # top-centre → rotate
-            else:
-                _post_key(pygame.KEYDOWN, pygame.K_DOWN)       # bottom-centre → step down
+            board_h = _INFO_ZONE_Y - M_BOARD_Y
+            rel_y   = ly - M_BOARD_Y
+            if rel_y > board_h * _BOTTOM_ZONE_PCT:
+                # Bottom 10% tap → step down one cell (intentional small zone)
+                _post_key(pygame.KEYDOWN, pygame.K_DOWN)
                 _post_key(pygame.KEYUP,   pygame.K_DOWN)
+            else:
+                # Tap anywhere else → rotate CW
+                _post_key(pygame.KEYDOWN, pygame.K_UP)
             return True
 
     return False

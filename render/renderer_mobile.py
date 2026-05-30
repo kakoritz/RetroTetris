@@ -751,7 +751,7 @@ def draw_mobile_menu(surf, blink_on, updater=None, menu_row=0):
 # Tap-zone rects for mobile settings (logical canvas coords)
 _MS_SLIDERS = {}   # populated at first draw
 _MS_DAS_BTNS: list = []
-_MS_CONTROLS_BTN = pygame.Rect(20, 730, 420, 60)
+_MS_CONTROLS_BTN = pygame.Rect(20, 396, 420, 50)
 
 _DAS_LABELS  = ['SLOW', 'NORM', 'FAST', 'FASTER']
 _DAS_PRESETS = ['slow', 'normal', 'fast', 'instant']
@@ -796,35 +796,12 @@ def draw_mobile_settings(surf, music_vol, sfx_vol, ghost_opacity,
 
     pygame.draw.line(surf, _BTN_BORDER, (20, 388), (SCREEN_WIDTH-20, 388), 1)
 
-    # DAS — 4 discrete option blocks
-    surf.blit(_font(22).render("INPUT  SPEED", True, BORDER_COLOR), (20, 398))
+    # DAS hidden from mobile settings — gesture controls don't need it
     _MS_DAS_BTNS.clear()
-    btn_w = (SCREEN_WIDTH - 40) // 4   # ~105px each
-    for i, (key, lbl) in enumerate(zip(_DAS_PRESETS, _DAS_LABELS)):
-        bx  = 20 + i * btn_w
-        box = pygame.Rect(bx + 3, 430, btn_w - 6, 58)
-        active = (key == das_preset)
-        bg  = YELLOW if active else _BTN_BG
-        tc  = BG_COLOR if active else (140, 140, 140)
-        pygame.draw.rect(surf, bg, box, border_radius=8)
-        pygame.draw.rect(surf, _BTN_BORDER, box, 1, border_radius=8)
-        t = _font(20).render(lbl, True, tc)
-        surf.blit(t, (box.centerx - t.get_width()//2,
-                      box.centery - t.get_height()//2))
-        _MS_DAS_BTNS.append((box, key))
 
-    # DAS description
-    d, r = _config.DAS_SETTINGS[das_preset]
-    arr  = "instant" if r == 0 else f"{r} ms repeat"
-    surf.blit(_font(14, bold=False).render(f"delay {d} ms  ·  {arr}", True, _LBL_COL),
-              (20, 496))
-
-    pygame.draw.line(surf, _BTN_BORDER, (20, 522), (SCREEN_WIDTH-20, 522), 1)
-
-    # CONTROLS link — plain text, no box
-    pygame.draw.line(surf, _BTN_BORDER, (20, 528), (SCREEN_WIDTH-20, 528), 1)
+    # CONTROLS link
     t = _font(24).render("VIEW  CONTROLS  →", True, BORDER_COLOR)
-    surf.blit(t, (20, 542))
+    surf.blit(t, (20, 400))
 
 
 # ── mobile controls ───────────────────────────────────────────────────────────
