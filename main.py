@@ -157,21 +157,31 @@ def main():
 
     _android = 'ANDROID_ARGUMENT' in os.environ
     _touch_zone_h = 0
+    _mobile = False
     if _android:
+        from renderer_mobile import (
+            M_CANVAS_H, M_BOARD_W, M_BOARD_H, M_BOARD_X, M_BOARD_Y, M_BTN_H,
+            M_CELL, M_STATS_H,
+            draw_mobile_board, draw_mobile_danger_line,
+            draw_mobile_piece, draw_mobile_ghost,
+            draw_mobile_stats, draw_mobile_touch_controls,
+            draw_mobile_popup, draw_mobile_level_up,
+        )
+        _mobile = True
+
         display   = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         _dw, _dh  = display.get_size()
-        # Width-fill: game occupies top portion, touch zone gets the rest.
-        # Falls back to old letterbox behaviour on landscape/square screens.
+        # Width-fill based on mobile canvas dimensions
         _scale_w  = _dw / SCREEN_WIDTH
-        _scale_h  = _dh / SCREEN_HEIGHT
+        _scale_h  = _dh / M_CANVAS_H
         if _scale_w <= _scale_h:
             current_scale = _scale_w
-            _touch_zone_h = max(0, int(_dh / current_scale) - SCREEN_HEIGHT)
+            _touch_zone_h = M_BTN_H
             _touch_ox, _touch_oy = 0, 0
         else:
-            current_scale = min(_scale_w, _scale_h)
-            _lw = int(SCREEN_WIDTH  * current_scale)
-            _lh = int(SCREEN_HEIGHT * current_scale)
+            current_scale = _scale_h
+            _lw = int(SCREEN_WIDTH * current_scale)
+            _lh = int(M_CANVAS_H   * current_scale)
             _touch_ox = (_dw - _lw) // 2
             _touch_oy = (_dh - _lh) // 2
     else:
@@ -190,7 +200,7 @@ def main():
         pygame.quit()
         sys.exit(1)
 
-    _canvas_h = SCREEN_HEIGHT + _touch_zone_h
+    _canvas_h = M_CANVAS_H if _mobile else SCREEN_HEIGHT + _touch_zone_h
     screen = pygame.Surface((SCREEN_WIDTH, _canvas_h))
     pygame.display.set_caption("RETRIS")
     clock = pygame.time.Clock()
@@ -205,7 +215,10 @@ def main():
 
     if _android:
         import touch_controls as _tc_init
-        if _touch_zone_h > 0:
+        if _mobile:
+            # Mobile layout: zone below stats+board at y = M_BOARD_Y + M_BOARD_H
+            _tc_init.init(SCREEN_WIDTH, M_BOARD_Y + M_BOARD_H, M_BTN_H)
+        elif _touch_zone_h > 0:
             _tc_init.init(SCREEN_WIDTH, SCREEN_HEIGHT, _touch_zone_h)
         app.touch_enabled = True
         app.touch_dw      = _dw
@@ -333,108 +346,194 @@ def main():
 
             level_theme = (gs.level - 1) % 10   # 0-9 cycling per level
 
-            bsurf = pygame.Surface((BOARD_WIDTH, BOARD_HEIGHT))
-
             fr = gs.clear_rows if app.state == CLEARING else None
             fo = (gs.clear_flash_idx % 2 == 0) if app.state == CLEARING else False
             fq = (gs.clear_count == 4) if app.state == CLEARING else False
             fw = gs.wow_active if app.state == CLEARING else False
-            draw_board(bsurf, gs.board, flash_rows=fr, flash_on=fo, flash_quad=fq,
-                       wow_on=fw, palette_phase=level_theme)
 
-            if gs.danger and not app.demo_active and app.state in (PLAYING, CLEARING, CASCADING, PAUSED):
-                _draw_danger_line(bsurf)
+            if _mobile:
+                # ── MOBILE rendering path ────────────────────────────────────
+                bsurf = pygame.Surface((M_BOARD_W, M_BOARD_H))
+                draw_mobile_board(bsurf, gs.board, flash_rows=fr, flash_on=fo,
+                                  flash_quad=fq, wow_on=fw,
+                                  palette_phase=level_theme)
 
-            if app.state in (PLAYING, PAUSED, DEMO):
-                draw_ghost(bsurf, gs.board, gs.current, app.ghost_opacity_pct,
-                           palette_phase=level_theme)
-                draw_piece(bsurf, gs.current, palette_phase=level_theme)
+                if gs.danger and not app.demo_active and app.state in (PLAYING, CLEARING, CASCADING, PAUSED):
+                    draw_mobile_danger_line(bsurf)
 
-            draw_particles(bsurf, gs.particles)
+                if app.state in (PLAYING, PAUSED, DEMO):
+                    draw_mobile_ghost(bsurf, gs.board, gs.current,
+                                      app.ghost_opacity_pct, palette_phase=level_theme)
+                    draw_mobile_piece(bsurf, gs.current, palette_phase=level_theme)
 
-            for db in gs.danger_bonuses:
-                a = int(255 * db['timer'] / db['max_timer'])
-                t = _font(20).render("×2", True, (255, 90, 0))
-                t.set_alpha(a)
-                bsurf.blit(t, (int(db['x']), int(db['y'])))
+                draw_particles(bsurf, gs.particles)
 
-            for cl in gs.combo_labels:
-                a  = int(255 * cl['timer'] / cl['max_timer'])
-                ct = _font(18).render(cl['text'], True, (0, 220, 240))
-                ct.set_alpha(a)
-                bsurf.blit(ct, (int(cl['x']), int(cl['y'])))
+                _ms = M_CELL / BOARD_HEIGHT * M_BOARD_H   # scale factor for label positions
+                _ms = M_CELL / 30   # = 4/3
+                for db in gs.danger_bonuses:
+                    a  = int(255 * db['timer'] / db['max_timer'])
+                    t  = _font(26).render("×2", True, (255, 90, 0))
+                    t.set_alpha(a)
+                    bsurf.blit(t, (int(db['x'] * _ms), int(db['y'] * _ms)))
 
-            for sd in gs.score_deltas:
-                a   = int(255 * sd['timer'] / sd['max_timer'])
-                sdt = _font(16).render(sd['text'], True, sd['color'])
-                sdt.set_alpha(a)
-                bsurf.blit(sdt, (int(sd['x']) - sdt.get_width() // 2, int(sd['y'])))
+                for cl in gs.combo_labels:
+                    a  = int(255 * cl['timer'] / cl['max_timer'])
+                    ct = _font(22).render(cl['text'], True, (0, 220, 240))
+                    ct.set_alpha(a)
+                    bsurf.blit(ct, (int(cl['x'] * _ms), int(cl['y'] * _ms)))
 
-            if gs.hd_flash_timer > 0:
-                alpha = int(190 * gs.hd_flash_timer / HD_FLASH_DURATION)
-                fl    = pygame.Surface((BOARD_WIDTH, BOARD_HEIGHT), pygame.SRCALPHA)
-                fl.fill((255, 255, 255, alpha))
-                bsurf.blit(fl, (0, 0))
+                for sd in gs.score_deltas:
+                    a   = int(255 * sd['timer'] / sd['max_timer'])
+                    sdt = _font(20).render(sd['text'], True, sd['color'])
+                    sdt.set_alpha(a)
+                    bsurf.blit(sdt, (int(sd['x'] * _ms) - sdt.get_width() // 2,
+                                     int(sd['y'] * _ms)))
 
-            if app.state == GAME_OVER:
-                draw_game_over_overlay(bsurf, gs.score,
-                                       gs.stat_pieces, gs.stat_tetrises, gs.stat_tspins,
-                                       gs.stat_combo, gs.stat_time)
-            elif app.state == GAME_OVER_ANIM:
-                app.go_anim.draw(bsurf)
+                if gs.hd_flash_timer > 0:
+                    alpha = int(190 * gs.hd_flash_timer / HD_FLASH_DURATION)
+                    fl    = pygame.Surface((M_BOARD_W, M_BOARD_H), pygame.SRCALPHA)
+                    fl.fill((255, 255, 255, alpha))
+                    bsurf.blit(fl, (0, 0))
 
-            # ── level-up overlay (independent of CASCADING label above) ──────
-            if gs.level_popup_timer > 0:
-                draw_level_up_overlay(bsurf, gs.level_popup_num,
-                                      gs.level_popup_timer, gs.level_popup_max,
-                                      level_theme)
+                if app.state == GAME_OVER:
+                    draw_game_over_overlay(bsurf, gs.score,
+                                           gs.stat_pieces, gs.stat_tetrises,
+                                           gs.stat_tspins, gs.stat_combo, gs.stat_time)
+                elif app.state == GAME_OVER_ANIM:
+                    app.go_anim.draw(bsurf)
 
-            # ── demo overlay ──────────────────────────────────────────────────
-            if app.state == DEMO:
-                draw_demo_overlay(bsurf, app.demo_label)
+                if gs.level_popup_timer > 0:
+                    draw_mobile_level_up(bsurf, gs.level_popup_num,
+                                         gs.level_popup_timer, gs.level_popup_max,
+                                         level_theme)
 
-            ox = oy = 0
-            if gs.shake_timer > 0:
-                amt = max(1, int(SHAKE_INTENSITY * gs.shake_timer / SHAKE_DURATION))
-                ox  = random.randint(-amt, amt)
-                oy  = random.randint(-amt, amt)
+                if app.state == DEMO:
+                    draw_demo_overlay(bsurf, app.demo_label)
 
-            app.screen.blit(bsurf, (ox, oy))
+                draw_mobile_popup(bsurf, gs.popup_count, gs.popup_timer)
 
-            # ── level-up border flash on the main screen ───────────────────
-            if gs.level_popup_timer > 0 and gs.level_popup_max > 0:
-                lp_prog  = gs.level_popup_timer / gs.level_popup_max
-                lp_alpha = min(1.0, 2.0 * (1.0 - abs(lp_prog - 0.5) / 0.5))
-                from constants import LEVEL_THEMES
-                gc       = LEVEL_THEMES[level_theme][1]
-                bc       = tuple(min(255, int(c * 4)) for c in gc)
-                ba       = int(200 * lp_alpha)
-                bf       = pygame.Surface((BOARD_WIDTH + 4, BOARD_HEIGHT + 4),
-                                          pygame.SRCALPHA)
-                pygame.draw.rect(bf, (*bc, ba), (0, 0, BOARD_WIDTH + 4, BOARD_HEIGHT + 4),
-                                 4)
-                app.screen.blit(bf, (-2, -2))
+                ox = oy = 0
+                if gs.shake_timer > 0:
+                    amt = max(1, int(SHAKE_INTENSITY * gs.shake_timer / SHAKE_DURATION))
+                    ox  = random.randint(-amt, amt)
+                    oy  = random.randint(-amt, amt)
 
-            lines_to_next = gs.level * 10 - gs.lines
-            draw_sidebar(app.screen, gs.score, gs.lines, gs.level, gs.piece_queue,
-                         app.best, gs.hold_piece, gs.hold_used,
-                         gs.speed_tier, lines_to_next,
-                         level_theme,
-                         gs.popup_count, gs.popup_timer,
-                         gs.next_flash_timer, gs.hold_piece is not None,
-                         gs.combo, gs.level_up_flash_timer,
-                         app.score_disp_digits, app.score_anim_from, app.score_anim_offs,
-                         cascading=app.state == CASCADING,
-                         cascade_freefall=app.cascade_freefall)
-            pygame.draw.rect(app.screen, BORDER_COLOR,
-                             (0, 0, BOARD_WIDTH, BOARD_HEIGHT), 1)
-            pygame.draw.line(app.screen, BORDER_COLOR,
-                             (BOARD_WIDTH, 0), (BOARD_WIDTH, SCREEN_HEIGHT), 1)
+                app.screen.blit(bsurf, (M_BOARD_X + ox, M_BOARD_Y + oy))
 
-            draw_ingame_gear(app.screen)
+                # Board border
+                pygame.draw.rect(app.screen, BORDER_COLOR,
+                                 (M_BOARD_X - 1, M_BOARD_Y - 1,
+                                  M_BOARD_W + 2, M_BOARD_H + 2), 1)
 
-            if app.state == PAUSED:
-                draw_pause(app.screen, app.blink_on, app.pause_row)
+                # Stats strip at top
+                draw_mobile_stats(
+                    app.screen, gs.score, gs.lines, gs.level, gs.piece_queue,
+                    app.best, gs.hold_piece, gs.hold_used,
+                    app.score_disp_digits, app.score_anim_from, app.score_anim_offs,
+                    palette_phase=level_theme,
+                    hold_has_piece=gs.hold_piece is not None,
+                    in_game=app.state in (PLAYING, CLEARING, CASCADING, PAUSED),
+                )
+
+                if app.state == PAUSED:
+                    draw_pause(app.screen, app.blink_on, app.pause_row)
+
+            else:
+                # ── DESKTOP rendering path ───────────────────────────────────
+                bsurf = pygame.Surface((BOARD_WIDTH, BOARD_HEIGHT))
+                draw_board(bsurf, gs.board, flash_rows=fr, flash_on=fo,
+                           flash_quad=fq, wow_on=fw, palette_phase=level_theme)
+
+                if gs.danger and not app.demo_active and app.state in (PLAYING, CLEARING, CASCADING, PAUSED):
+                    _draw_danger_line(bsurf)
+
+                if app.state in (PLAYING, PAUSED, DEMO):
+                    draw_ghost(bsurf, gs.board, gs.current, app.ghost_opacity_pct,
+                               palette_phase=level_theme)
+                    draw_piece(bsurf, gs.current, palette_phase=level_theme)
+
+                draw_particles(bsurf, gs.particles)
+
+                for db in gs.danger_bonuses:
+                    a = int(255 * db['timer'] / db['max_timer'])
+                    t = _font(20).render("×2", True, (255, 90, 0))
+                    t.set_alpha(a)
+                    bsurf.blit(t, (int(db['x']), int(db['y'])))
+
+                for cl in gs.combo_labels:
+                    a  = int(255 * cl['timer'] / cl['max_timer'])
+                    ct = _font(18).render(cl['text'], True, (0, 220, 240))
+                    ct.set_alpha(a)
+                    bsurf.blit(ct, (int(cl['x']), int(cl['y'])))
+
+                for sd in gs.score_deltas:
+                    a   = int(255 * sd['timer'] / sd['max_timer'])
+                    sdt = _font(16).render(sd['text'], True, sd['color'])
+                    sdt.set_alpha(a)
+                    bsurf.blit(sdt, (int(sd['x']) - sdt.get_width() // 2, int(sd['y'])))
+
+                if gs.hd_flash_timer > 0:
+                    alpha = int(190 * gs.hd_flash_timer / HD_FLASH_DURATION)
+                    fl    = pygame.Surface((BOARD_WIDTH, BOARD_HEIGHT), pygame.SRCALPHA)
+                    fl.fill((255, 255, 255, alpha))
+                    bsurf.blit(fl, (0, 0))
+
+                if app.state == GAME_OVER:
+                    draw_game_over_overlay(bsurf, gs.score,
+                                           gs.stat_pieces, gs.stat_tetrises, gs.stat_tspins,
+                                           gs.stat_combo, gs.stat_time)
+                elif app.state == GAME_OVER_ANIM:
+                    app.go_anim.draw(bsurf)
+
+                if gs.level_popup_timer > 0:
+                    draw_level_up_overlay(bsurf, gs.level_popup_num,
+                                          gs.level_popup_timer, gs.level_popup_max,
+                                          level_theme)
+
+                if app.state == DEMO:
+                    draw_demo_overlay(bsurf, app.demo_label)
+
+                ox = oy = 0
+                if gs.shake_timer > 0:
+                    amt = max(1, int(SHAKE_INTENSITY * gs.shake_timer / SHAKE_DURATION))
+                    ox  = random.randint(-amt, amt)
+                    oy  = random.randint(-amt, amt)
+
+                app.screen.blit(bsurf, (ox, oy))
+
+                if gs.level_popup_timer > 0 and gs.level_popup_max > 0:
+                    lp_prog  = gs.level_popup_timer / gs.level_popup_max
+                    lp_alpha = min(1.0, 2.0 * (1.0 - abs(lp_prog - 0.5) / 0.5))
+                    from constants import LEVEL_THEMES
+                    gc       = LEVEL_THEMES[level_theme][1]
+                    bc       = tuple(min(255, int(c * 4)) for c in gc)
+                    ba       = int(200 * lp_alpha)
+                    bf       = pygame.Surface((BOARD_WIDTH + 4, BOARD_HEIGHT + 4),
+                                              pygame.SRCALPHA)
+                    pygame.draw.rect(bf, (*bc, ba),
+                                     (0, 0, BOARD_WIDTH + 4, BOARD_HEIGHT + 4), 4)
+                    app.screen.blit(bf, (-2, -2))
+
+                lines_to_next = gs.level * 10 - gs.lines
+                draw_sidebar(app.screen, gs.score, gs.lines, gs.level, gs.piece_queue,
+                             app.best, gs.hold_piece, gs.hold_used,
+                             gs.speed_tier, lines_to_next,
+                             level_theme,
+                             gs.popup_count, gs.popup_timer,
+                             gs.next_flash_timer, gs.hold_piece is not None,
+                             gs.combo, gs.level_up_flash_timer,
+                             app.score_disp_digits, app.score_anim_from, app.score_anim_offs,
+                             cascading=app.state == CASCADING,
+                             cascade_freefall=app.cascade_freefall)
+                pygame.draw.rect(app.screen, BORDER_COLOR,
+                                 (0, 0, BOARD_WIDTH, BOARD_HEIGHT), 1)
+                pygame.draw.line(app.screen, BORDER_COLOR,
+                                 (BOARD_WIDTH, 0), (BOARD_WIDTH, SCREEN_HEIGHT), 1)
+
+                draw_ingame_gear(app.screen)
+
+                if app.state == PAUSED:
+                    draw_pause(app.screen, app.blink_on, app.pause_row)
 
         elif app.state == ENTER_NAME:
             draw_name_entry(app.screen, app.initials, app.ini_cursor, app.blink_on,
@@ -457,20 +556,23 @@ def main():
         elif app.state == CONTROLS:
             draw_controls(app.screen)
 
-        # Touch controls (Android only, drawn in the zone below the game)
-        if app.touch_enabled and app.touch_zone_h > 0:
-            draw_touch_controls(app.screen, SCREEN_HEIGHT, app.touch_zone_h)
+        # Touch controls (Android only)
+        if app.touch_enabled:
+            if _mobile:
+                draw_mobile_touch_controls(app.screen, M_BOARD_Y + M_BOARD_H, M_BTN_H)
+            elif app.touch_zone_h > 0:
+                draw_touch_controls(app.screen, SCREEN_HEIGHT, app.touch_zone_h)
 
         # Blit logical surface → physical display
         if app.touch_enabled:
-            if app.touch_zone_h > 0:
-                # Width-fill: canvas exactly covers display — no letterbox needed
+            if app.touch_ox == 0 and app.touch_oy == 0:
+                # Width-fill (portrait): canvas exactly covers display
                 pygame.transform.smoothscale(
                     app.screen, (app.touch_dw, app.touch_dh), app.display)
             else:
-                # Landscape fallback: letterbox
+                # Letterbox fallback (landscape or mismatched ratio)
                 lw = int(SCREEN_WIDTH  * app.current_scale)
-                lh = int(SCREEN_HEIGHT * app.current_scale)
+                lh = int(_canvas_h     * app.current_scale)
                 app.display.fill((0, 0, 0))
                 app.display.blit(
                     pygame.transform.smoothscale(app.screen, (lw, lh)),

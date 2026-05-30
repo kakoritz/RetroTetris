@@ -1,13 +1,14 @@
 """
 touch_controls.py — virtual gamepad for Android.
 
-Buttons live in the logical-canvas zone below the game board (y >= SCREEN_HEIGHT).
+6 buttons in the touch zone below the game board (y >= M_BOARD_Y + M_BOARD_H).
+Pause is handled separately via M_PAUSE_RECT in the stats strip.
 Call init() once from main() after the display is set up.
 
 Layout (left → right):
   ◀  move left     (K_LEFT,  DAS-repeatable)
-  ↺  rotate CCW    (K_z,     single-fire)
-  ↓  hard drop     (K_SPACE, single-fire)
+  ↓  soft drop     (K_DOWN,  repeatable)
+  ↵  hard drop     (K_SPACE, single-fire)
   ⏹  hold piece    (K_c,     single-fire)
   ↻  rotate CW     (K_UP,    single-fire)
   ▶  move right    (K_RIGHT, DAS-repeatable)
@@ -21,7 +22,7 @@ _KEYS = [
     pygame.K_c,       # SWAP hold piece  (single-fire)
     pygame.K_UP,      # ↻ rotate CW      (single-fire)
     pygame.K_RIGHT,   # > move right     (DAS-repeatable)
-    pygame.K_ESCAPE,  # II pause / menu  (single-fire)
+    # Pause lives in the stats strip tap target (renderer_mobile.M_PAUSE_RECT)
 ]
 
 # (Rect, key) — populated by init(); rects are in logical canvas coordinates
@@ -61,11 +62,7 @@ def _post_key(evt_type: int, key: int) -> None:
 
 def handle(event, dw: int, dh: int,
            ox: int, oy: int, scale: float) -> None:
-    """Route one FINGER* event to synthetic keyboard events.
-
-    Arguments mirror the old letterbox-based signature so input_handler.py
-    needs no changes.  With the new width-fill layout ox=oy=0.
-    """
+    """Route one FINGER* event to synthetic keyboard events."""
     if not BUTTONS:
         return
 

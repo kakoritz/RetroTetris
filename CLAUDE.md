@@ -43,7 +43,7 @@ Version number format: `v1.MAJOR.MINOR` — bump MINOR for any visible change, M
 
 - **Language:** Python 3.10+, Pygame 2.5+, NumPy
 - **No external assets** — every pixel, sound, and note is generated at runtime
-- **Logical resolution:** 460×600 (SCREEN_WIDTH × SCREEN_HEIGHT); scaled to window via `current_scale`
+- **Logical resolution:** 460×600 desktop · 460×940 mobile (M_CANVAS_H); scaled to display via `current_scale`
 - **State machine states:** MENU, PLAYING, CLEARING, CASCADING, GAME_OVER_ANIM, GAME_OVER, ENTER_NAME, LEADERBOARD, SETTINGS, PAUSED, MUSIC_TEST, DEMO
 - **FPS:** 60, enforced via `clock.tick(FPS)`
 - **Board:** 10 cols × 20 rows, `board.grid[row][col]` stores color_id (0 = empty)
@@ -73,7 +73,9 @@ game_state.py     GameState — per-session mutable state, reset() on new game
 app_state.py      AppState — shell state across sessions; state-machine constants
 game_logic.py     spawn_next, do_hold, start_new_game, end_game, do_lock, etc.
 input_handler.py  event dispatch + DAS auto-repeat (handle_input)
-renderer.py       all draw_* functions, font cache, rendering constants
+renderer.py       desktop draw_* functions, font cache, rendering constants
+renderer_mobile.py  Android layout (460×940, stats strip, CELL=40, compact controls)
+renderer_web.py   future web/multiplayer renderer stub
 rotation.py       SRS wall-kick engine, T-spin detection
 game_constants.py gameplay-tuning constants — no Pygame dependency
 board.py          grid, collision, line-clear, cascade gravity

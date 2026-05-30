@@ -93,8 +93,10 @@ persisted across sessions in `config.json`. Ghost-piece opacity is also persiste
 - Pause overlay — music drops to 10 %, any key resumes, Q exits to menu
 - Music Preview screen — audition all 10 tiers live from the menu
 - Settings screen — music volume, SFX volume, display scale, ghost opacity
-- **Android full-screen layout** — game fills the phone's full width; touch controls live in a dedicated zone below the board so nothing overlaps gameplay
-- **NES block-art touch controls** — 7 finger-size buttons (LEFT, DOWN, DROP, HOLD, ROTATE, RIGHT, PAUSE) drawn with the same pixel-block renderer as the RETRIS logo; animated T-piece pause button cycles through all 7 piece colours
+- **3-platform renderer architecture** — `renderer.py` (desktop), `renderer_mobile.py` (Android), `renderer_web.py` (future web/multiplayer stub). All share the same game logic and asset pipeline.
+- **Android full-screen layout** — 460×940 logical canvas: 70 px compact stats strip at top, 400×800 game board (CELL=40), 70 px touch controls at bottom — no wasted space, no overlap with gameplay
+- **Compact NES block-art touch controls** — 6 bordered button-style controls: LEFT / DOWN / DROP / HOLD / ROTATE / RIGHT. Height is ~7 % of screen (vs the old ~40 %). Each button shows a press highlight when touched.
+- **Mobile pause button** — `II` in the stats strip (top-right); tap to pause at any time
 
 ---
 
@@ -166,10 +168,9 @@ zone below the game board. Seven tap targets span the zone:
 | HOLD | `H`-block | Swap hold piece |
 | ROTATE `↻` | Curved arrow | Rotate clockwise |
 | RIGHT `>` | NES block arrow | Move right (DAS auto-repeat while held) |
-| T-PIECE | Animated tetromino | Pause / open menu |
+| `II` (stats strip) | Text button, top-right | Pause / open menu |
 
-The pause button is an animated T-tetromino that slowly cycles through all 7 piece
-colours — tap it at any time during gameplay to pause.
+Tap the `II` button in the top-right of the stats strip to pause at any time.
 
 ---
 

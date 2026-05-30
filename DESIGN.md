@@ -350,59 +350,69 @@ returns to the menu from any demo phase.
 
 ---
 
-## 6.7 Android Build
+## 6.7 Android Build & 3-Platform Architecture
+
+### Platform renderer split
+
+RETRIS has three renderer targets. All share the same game logic, assets, and physics:
+
+| File | Target | Canvas |
+|------|--------|--------|
+| `render/renderer.py` | Desktop (PC) | 460×600 (sidebar layout) |
+| `render/renderer_mobile.py` | Android | 460×940 (stats top + board + controls bottom) |
+| `render/renderer_web.py` | Future web portal | TBD |
+
+`main.py` detects `ANDROID_ARGUMENT` at startup and imports from `renderer_mobile` for
+all Android drawing. The desktop code path is unchanged.
+
+**Shared across all platforms:**
+- `render/sprites.py` — `get_block(color_id, size, palette_phase)` block cache
+- `render/particles.py` — particle burst system
+- `render/game_over_anim.py` — per-block physics for GAME OVER sequence
+- `logic/` — game logic, input, touch controls (platform-agnostic)
+- `core/` — game state, app state, board, piece (platform-agnostic)
+
+### APK build
 
 RETRIS is packaged as a standard Android APK using **Buildozer + python-for-android**.
-Every push to `main` (and on-demand via `workflow_dispatch`) triggers a GitHub Actions
-build that compiles the Python source and pygame-ce into a native ARM64 APK and
-publishes it to the `apk-latest` GitHub Release. Users download and sideload.
+Every push to `main` triggers a GitHub Actions build and publishes to the
+`apk-latest` GitHub Release.
 
-### Runtime detection
+### Runtime detection — mobile layout
 
-The presence of `ANDROID_ARGUMENT` in the environment signals an Android runtime:
-- Display: `pygame.FULLSCREEN` at device resolution. In portrait mode the game is
-  **width-fill**: `scale = device_width / SCREEN_WIDTH`. The remaining vertical space
-  below the 460×600 game area becomes the **touch control zone** — no black bars,
-  no letterboxing, no controls overlapping the board.
-- `touch_zone_h = int(dh / scale) - SCREEN_HEIGHT` — the logical height of the zone.
-  The canvas surface is created as `(SCREEN_WIDTH, SCREEN_HEIGHT + touch_zone_h)` and
-  scaled to the full display each frame via `smoothscale`.
-- Storage: `ANDROID_PRIVATE` overrides the config/highscore paths so saves persist
-  in the app's private storage directory.
+The presence of `ANDROID_ARGUMENT` in the environment triggers the mobile renderer:
+- Canvas: `460 × 940` logical pixels (`SCREEN_WIDTH × M_CANVAS_H`)
+- Scale: `device_width / 460` — fills phone width in portrait mode
+- Board: CELL=40 (vs desktop CELL=30), 400×800 px, 30 px margins each side
+- Stats strip (top 70 px): HOLD piece, LVL, LNS, 8-digit SCORE, NEXT×2, PAUSE button
+- Touch controls (bottom 70 px): 6 bordered buttons with press highlight
 
-### Touch controls — NES block-art design
+Physical dimensions on Pixel 5a (1080×2264):
+- Scale = 2.348 — stats 164 px, board 939×1878 px, controls 164 px (total 2206 px)
+- Storage: `ANDROID_PRIVATE` overrides config/highscore paths
 
-Seven buttons span the touch zone below the game board, each rendered with the same
-pixel-block renderer used for the RETRIS logo (`get_block(color_id, cell_size)`).
-Shapes are defined as 2-D grids of 0/1 cells that form recognisable icons:
+### Touch controls (mobile, 6 buttons, no pause in zone)
 
-| Position | Button | Key | Icon |
-|----------|--------|-----|------|
-| 1 | LEFT | ← | Block `<` arrow |
-| 2 | DOWN | ↓ | Block `V` arrow |
-| 3 | DROP | Space | Return-key icon |
-| 4 | HOLD | C | Block H-shape |
-| 5 | ROTATE | ↑ | Curved block arrow |
-| 6 | RIGHT | → | Block `>` arrow |
-| 7 | PAUSE | Esc | Animated T-tetromino |
+| Button | Key | Icon |
+|--------|-----|------|
+| LEFT | ← | Block `<` arrow |
+| DOWN | ↓ | Block `V` arrow |
+| DROP | Space | Return-key icon |
+| HOLD | C | Block H-shape |
+| ROTATE | ↑ | Curved block arrow |
+| RIGHT | → | Block `>` arrow |
 
-The **PAUSE** button is a live T-piece that cycles through all 7 piece colours at one
-colour per 1.5 s (`pygame.time.get_ticks() // 1500 % 7 + 1`). It is decorative enough
-to be noticed but not distracting during play.
+Pause is a tap target (`M_PAUSE_RECT`) in the top stats strip, not in the button zone.
 
-`FINGERDOWN/UP/MOTION` events are converted to `KEYDOWN/KEYUP` synthetic events posted
-to the pygame event queue. The existing `input_handler.py` is unchanged — touch and
-keyboard share the same handler. FINGERMOTION handles sliding between buttons mid-gesture.
+`FINGERDOWN/UP/MOTION` → `KEYDOWN/KEYUP` synthetic events posted to the pygame queue.
+FINGERMOTION handles mid-gesture slides between buttons.
 
-### Touch UI — button routing
+### Touch UI — click routing
 
-All menu and pause screens support tap (Android and desktop):
-- `FINGERDOWN` and `MOUSEBUTTONDOWN` events are checked against button hitbox rects
-  defined in `renderer.py` (exported as module-level `pygame.Rect` constants).
-- `_handle_click(lx, ly, gs, app)` in `input_handler.py` maps logical tap position
-  to the correct state transition (start game, open leaderboard, settings, about, etc.).
-- Tapping during `GAME_OVER_ANIM` skips the animation; tapping `GAME_OVER` returns to
-  the menu. Both paths were previously keyboard-only and locked up on Android.
+`_handle_click(lx, ly, gs, app)` in `input_handler.py` handles all tap targets:
+- Menu: START GAME, LEADERBOARD, SETTINGS, ABOUT hitboxes
+- In-game: `INGAME_GEAR_RECT` (desktop) or `M_PAUSE_RECT` (mobile) → pause
+- Game-over states: tap anywhere to skip animation / return to menu
 
 ### Update checker
 

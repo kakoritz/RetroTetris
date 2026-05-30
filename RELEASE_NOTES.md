@@ -2,6 +2,44 @@
 
 ---
 
+## v2.0.0 — Platform-Split Architecture & Mobile Layout Overhaul
+*2026-05-29*
+
+### Added
+- **`renderer_mobile.py`** — dedicated Android renderer with a completely
+  different layout from the desktop: 460×940 logical canvas, 70 px compact stats
+  strip at top, full-width board (CELL=40, 400×800), 70 px touch controls at bottom.
+- **Compact stats strip (top)** — horizontal band shows HOLD piece, LVL, LNS,
+  8-digit SCORE odometer, NEXT 2 pieces, and a PAUSE `II` tap target — all above
+  the board so nothing overlaps gameplay.
+- **Button-style touch controls** — 6 bordered buttons with press highlight and NES
+  block-art icons: LEFT / DOWN / DROP / HOLD / ROTATE / RIGHT. Height is now ~7 %
+  of screen instead of the previous ~40 %.
+- **Mobile pause button** — `II` in the stats strip; tap target fires K_ESCAPE to
+  pause at any time during gameplay.
+- **`renderer_web.py`** — documented stub for the planned web portal / multiplayer
+  renderer; includes architecture notes and planned multiplayer API design.
+- **3-platform architecture** — `renderer.py` (desktop), `renderer_mobile.py`
+  (Android), `renderer_web.py` (future web). Shared core: `logic/`, `core/`,
+  `sprites.py`, `particles.py`, `game_over_anim.py`.
+
+### Changed
+- **Pause removed from touch zone** — pause button now lives in the top stats strip,
+  giving more width to the 6 gameplay buttons.
+- **Board cell size on mobile** — CELL=40 (vs desktop CELL=30); board is 400×800 px
+  logical, fills 87 % of screen width at 2.35× scale.
+- **Mobile canvas height** — 940 px (stats 70 + board 800 + controls 70) vs the
+  old dynamic value that gave a 40 % wasted touch zone.
+- **Dual render path in `main.py`** — desktop path unchanged; Android uses the
+  mobile path with scaled floating-label coordinates (× 4/3 scale factor).
+
+### Fixed
+- **Demo-mode music stops looping** — `MUSIC_END` event was not handled in the
+  `DEMO` state; adding it means the game-music sequence now advances correctly
+  during attract/demo mode.
+
+---
+
 ## v1.12.0 — Android Touch Controls & Full-Screen Layout
 *2026-05-29*
 
