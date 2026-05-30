@@ -145,6 +145,7 @@ _STATE_LAYOUTS = {
     'settings':       _LAY_MENU_BTN,
     'about':          _LAY_MENU_BTN,
     'controls':       _LAY_MENU_BTN,
+    'practice':       _LAY_MENU_BTN,   # T-piece MENU exits practice
     'music_test':     _LAY_MENU_BTN,
 }
 
@@ -359,15 +360,15 @@ def draw_mobile_pause(surf, blink_on, pause_row=0):
 
     cx = SCREEN_WIDTH // 2
     items  = ["CONTINUE", "SETTINGS", "QUIT  TO  MENU"]
-    item_y = [board_cy - 36, board_cy + 34, board_cy + 104]
+    item_y = [board_cy - 40, board_cy + 34, board_cy + 108]
     for i, (label, y) in enumerate(zip(items, item_y)):
         selected = (i == pause_row)
-        size = 28 if selected else 22
-        col  = WHITE if selected else (90, 90, 90)
-        _draw_shadow_text(surf, label, size, cx, y, col, center_x=True)
-        if selected and blink_on:
-            ax = cx - _font(size).size(label)[0]//2 - 32
-            _draw_shadow_text(surf, ">", size, ax, y, (255, 220, 0))
+        # All items large white — same as main menu style
+        _draw_shadow_text(surf, label, 44, cx, y, WHITE, center_x=True)
+        if blink_on and selected:
+            tw = _font(44).size(label)[0]
+            _draw_shadow_text(surf, ">", 44, cx - tw//2 - 42, y, (255, 220, 0))
+            _draw_shadow_text(surf, "<", 44, cx + tw//2 + 14, y, (255, 220, 0))
 
     pass   # no hint text on mobile — button bar is self-explanatory
 
@@ -731,8 +732,9 @@ def draw_mobile_menu(surf, blink_on, updater=None, menu_row=0):
         selected = (i == menu_row)
         _draw_shadow_text(surf, label, 52, cx, y, WHITE, center_x=True)
         if selected and blink_on:
-            ax = cx - _font(52).size(label)[0] // 2 - 42
-            _draw_shadow_text(surf, ">", 52, ax, y, (255, 220, 0))
+            tw = _font(52).size(label)[0]
+            _draw_shadow_text(surf, ">", 52, cx - tw//2 - 48, y, (255, 220, 0))
+            _draw_shadow_text(surf, "<", 52, cx + tw//2 + 10, y, (255, 220, 0))
 
     # ── version string ────────────────────────────────────────────────────────
     ver_col = (55, 55, 55)
@@ -843,26 +845,113 @@ _M_CTRL_TABLE = [
 
 
 def draw_mobile_controls(surf):
+    """Controls screen — board zone diagram with labels + PRACTICE button."""
     surf.fill(BG_COLOR)
     _draw_menu_bg(surf)
     cx = SCREEN_WIDTH // 2
 
-    _draw_shadow_text(surf, "CONTROLS", 38, cx, 20, YELLOW, center_x=True)
-    pygame.draw.line(surf, _BTN_BORDER, (16, 70), (SCREEN_WIDTH-16, 70), 1)
+    _draw_shadow_text(surf, "CONTROLS", 38, cx, 14, YELLOW, center_x=True)
+    pygame.draw.line(surf, _BTN_BORDER, (16, 62), (SCREEN_WIDTH-16, 62), 1)
 
-    content_h = M_CANVAS_H - M_BTN_H   # 850
-    row_h     = (content_h - 82) // len(_M_CTRL_TABLE)   # dynamic
+    # ── Board zone diagram ────────────────────────────────────────────────────
+    # Draw a scaled-down board (same proportions as game board)
+    DW   = 300          # diagram width
+    DH   = 480          # diagram height (DW * 20/10 * scale)
+    DX   = cx - DW//2   # centred horizontally
+    DY   = 72           # below title
 
-    for i, (btn, desc) in enumerate(_M_CTRL_TABLE):
-        y      = 80 + i * row_h
-        row_bg = (12, 12, 30) if i % 2 == 0 else _BG_STRIP
-        pygame.draw.rect(surf, row_bg, (10, y, SCREEN_WIDTH-20, row_h-2))
-        ry = y + (row_h - 2) // 2 - 10
-        # Button name — yellow/bold, left
-        _draw_shadow_text(surf, btn, 20, 16, ry, YELLOW)
-        # Description — white, right half
-        t = _font(16, bold=False).render(desc, True, (190, 190, 210))
-        surf.blit(t, (SCREEN_WIDTH//2 - 10, ry + 2))
-        if i < len(_M_CTRL_TABLE) - 1:
-            pygame.draw.line(surf, (28, 28, 48),
-                             (10, y+row_h-1), (SCREEN_WIDTH-10, y+row_h-1), 1)
+    # Board background
+    pygame.draw.rect(surf, (18, 18, 42), (DX, DY, DW, DH))
+
+    # Grid lines (faint)
+    cell_w = DW // 10
+    cell_h = DH // 20
+    for gx in range(1, 10):
+        pygame.draw.line(surf, (30, 30, 60),
+                         (DX + gx*cell_w, DY), (DX + gx*cell_w, DY+DH), 1)
+    for gy in range(1, 20):
+        pygame.draw.line(surf, (30, 30, 60),
+                         (DX, DY + gy*cell_h), (DX+DW, DY + gy*cell_h), 1)
+
+    # Zone dividers — red, bold
+    THIRD = DW // 3
+    HALF  = int(DH * 0.55)
+    RED   = (220, 40, 40)
+    # Vertical: left/right column dividers
+    pygame.draw.line(surf, RED, (DX + THIRD,       DY), (DX + THIRD,       DY+DH), 2)
+    pygame.draw.line(surf, RED, (DX + THIRD*2,     DY), (DX + THIRD*2,     DY+DH), 2)
+    # Horizontal: top/bottom split in centre column only
+    pygame.draw.line(surf, RED, (DX + THIRD, DY + HALF), (DX + THIRD*2, DY + HALF), 2)
+
+    # Board outline
+    pygame.draw.rect(surf, RED, (DX, DY, DW, DH), 2)
+
+    # Zone labels
+    def zlbl(text, zx, zy, zw, zh, size=13):
+        t = _font(size, bold=False).render(text, True, WHITE)
+        surf.blit(t, (zx + zw//2 - t.get_width()//2,
+                      zy + zh//2 - t.get_height()//2))
+
+    zlbl("◄  TAP",          DX,              DY,        THIRD,    DH,    12)
+    zlbl("MOVE LEFT",        DX,              DY + 18,   THIRD,    DH,    12)
+    zlbl("TAP  ►",           DX + THIRD*2,    DY,        THIRD,    DH,    12)
+    zlbl("MOVE RIGHT",       DX + THIRD*2,    DY + 18,   THIRD,    DH,    12)
+    zlbl("↻  TAP  ROTATE",  DX + THIRD,      DY,        THIRD,    HALF,  11)
+    zlbl("▼  TAP  STEP",    DX + THIRD,      DY + HALF, THIRD,    DH-HALF, 11)
+
+    # Swipe label below diagram
+    surf.blit(_font(13).render("SWIPE  ↓  ANYWHERE  =  HARD  DROP", True, RED),
+              (cx - _font(13).size("SWIPE  ↓  ANYWHERE  =  HARD  DROP")[0]//2,
+               DY + DH + 8))
+
+    # HOLD box label
+    surf.blit(_font(12, bold=False).render(
+        "TAP  THE  HOLD  BOX  (right of info strip)  =  HOLD PIECE",
+        True, (120, 200, 255)),
+        (cx - _font(12).size("TAP  THE  HOLD  BOX  (right of info strip)  =  HOLD PIECE")[0]//2,
+         DY + DH + 30))
+
+    # ── PRACTICE button ───────────────────────────────────────────────────────
+    PRAC_RECT = pygame.Rect(cx - 170, DY + DH + 58, 340, 64)
+    pygame.draw.rect(surf, (20, 50, 20), PRAC_RECT, border_radius=10)
+    pygame.draw.rect(surf, (60, 180, 60), PRAC_RECT, 2, border_radius=10)
+    t = _font(28).render("▶  PRACTICE  MODE", True, (60, 220, 60))
+    surf.blit(t, (PRAC_RECT.centerx - t.get_width()//2,
+                  PRAC_RECT.centery - t.get_height()//2))
+
+
+# Exported rect for PRACTICE button hit-testing
+M_PRACTICE_BTN = pygame.Rect(SCREEN_WIDTH//2 - 170, 72 + 480 + 58, 340, 64)
+
+
+def draw_mobile_practice_overlay(surf, timer_ms: int) -> None:
+    """Semi-transparent zone overlay drawn on bsurf during PRACTICE mode.
+    Fades out over the first 12 seconds."""
+    fade_ms  = 12000
+    if timer_ms >= fade_ms:
+        return
+    alpha = max(0, int(200 * (1.0 - timer_ms / fade_ms)))
+    ov    = pygame.Surface((M_BOARD_W, M_BOARD_H), pygame.SRCALPHA)
+
+    THIRD = M_BOARD_W // 3
+    HALF  = int(M_BOARD_H * 0.55)
+    RED   = (220, 40, 40, alpha)
+    WHITE_A = (255, 255, 255, alpha)
+
+    # Vertical dividers
+    pygame.draw.line(ov, RED, (THIRD,   0), (THIRD,   M_BOARD_H), 3)
+    pygame.draw.line(ov, RED, (THIRD*2, 0), (THIRD*2, M_BOARD_H), 3)
+    # Horizontal divider (centre column only)
+    pygame.draw.line(ov, RED, (THIRD, HALF), (THIRD*2, HALF), 3)
+
+    def _zlbl(text, zx, zy, zw, zh, size=18):
+        t = _font(size, bold=False).render(text, True, (255,255,255))
+        t.set_alpha(alpha)
+        surf.blit(t, (zx + zw//2 - t.get_width()//2,
+                      zy + zh//2 - t.get_height()//2))
+
+    surf.blit(ov, (0, 0))
+    _zlbl("◄ MOVE", 0,        0,       THIRD,   M_BOARD_H, 20)
+    _zlbl("MOVE ►", THIRD*2,  0,       THIRD,   M_BOARD_H, 20)
+    _zlbl("↻ ROTATE", THIRD,  0,       THIRD,   HALF,      18)
+    _zlbl("▼ STEP",   THIRD,  HALF,    THIRD,   M_BOARD_H-HALF, 18)

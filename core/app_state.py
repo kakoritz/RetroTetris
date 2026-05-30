@@ -27,6 +27,7 @@ CASCADING      = "cascading"
 DEMO           = "demo"
 ABOUT          = "about"
 CONTROLS       = "controls"
+PRACTICE       = "practice"
 
 
 class AppState:

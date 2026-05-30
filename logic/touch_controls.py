@@ -32,6 +32,7 @@ _STATE_KEYS = {
     'demo':           _KEYS_MENU_BTN,
     'about':          _KEYS_MENU_BTN,
     'controls':       _KEYS_MENU_BTN,
+    'practice':       _KEYS_MENU_BTN,
     'music_test':     _KEYS_MENU_BTN,
 }
 

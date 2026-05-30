@@ -115,6 +115,7 @@ CASCADING      = "cascading"
 DEMO           = "demo"
 ABOUT          = "about"
 CONTROLS       = "controls"
+PRACTICE       = "practice"
 
 
 def _make_display(scale: float) -> pygame.Surface:
@@ -172,6 +173,7 @@ def main():
             draw_mobile_game_over, draw_mobile_pause,
             draw_mobile_leaderboard,
             draw_mobile_menu, draw_mobile_settings, draw_mobile_controls,
+            draw_mobile_practice_overlay, M_PRACTICE_BTN,
         )
         _mobile = True
 
@@ -356,7 +358,7 @@ def main():
                           menu_row=app.menu_row)
 
         elif app.state in (PLAYING, CLEARING, CASCADING, GAME_OVER, GAME_OVER_ANIM,
-                           PAUSED, DEMO):
+                           PAUSED, DEMO, PRACTICE):
             app.screen.fill(BG_COLOR)
 
             level_theme = (gs.level - 1) % 10   # 0-9 cycling per level
@@ -424,6 +426,12 @@ def main():
 
                 if app.state == DEMO:
                     draw_demo_overlay(bsurf, app.demo_label)
+
+                if app.state == PRACTICE:
+                    if not hasattr(app, '_practice_timer'):
+                        app._practice_timer = 0
+                    app._practice_timer += dt
+                    draw_mobile_practice_overlay(bsurf, app._practice_timer)
 
                 draw_mobile_popup(bsurf, gs.popup_count, gs.popup_timer)
 

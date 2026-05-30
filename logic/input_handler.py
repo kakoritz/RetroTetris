@@ -42,8 +42,8 @@ INITIALS_CHARS  = "ABCDEFGHIJKLMNOPQRSTUVWXYZ "
 
 # ── board gesture tracker ─────────────────────────────────────────────────────
 _board_gestures: dict = {}   # finger_id → (start_lx, start_ly, dropped)
-_SWIPE_DROP_PX  = 70         # logical px downward movement = hard drop
-_TAP_MAX_PX     = 35         # logical px max movement to count as a tap
+_SWIPE_DROP_PX  = 120        # logical px downward movement = hard drop (raised — less sensitive)
+_TAP_MAX_PX     = 25         # logical px max movement to count as a tap (tighter = less accidental)
 
 
 def _post_key(evt_type: int, key: int) -> None:
@@ -56,7 +56,7 @@ def _handle_board_gesture(event, app) -> bool:
     Returns True if the event was consumed as a gesture."""
     if not getattr(app, 'touch_enabled', False):
         return False
-    if app.state not in ('playing', 'clearing', 'cascading'):
+    if app.state not in ('playing', 'clearing', 'cascading', 'practice'):
         return False
 
     try:
@@ -98,15 +98,26 @@ def _handle_board_gesture(event, app) -> bool:
         dx = abs(lx - sx)
         dy = abs(ly - sy)
         if dx < _TAP_MAX_PX and dy < _TAP_MAX_PX:
-            # Three zones: left third → move left, middle → rotate, right third → move right
-            third  = M_BOARD_W // 3
-            rel_x  = lx - M_BOARD_X
+            # 3×2 grid zones:
+            #  left col → move left  |  top-centre → rotate  |  right col → move right
+            #                        |  bot-centre → step ↓  |
+            third    = M_BOARD_W // 3
+            rel_x    = lx - M_BOARD_X
+            board_h  = _INFO_ZONE_Y - M_BOARD_Y
+            rel_y    = ly - M_BOARD_Y
+            top_half = rel_y < board_h * 0.55   # slightly biased toward top
+
             if rel_x < third:
-                _post_key(pygame.KEYDOWN, pygame.K_LEFT)   # left third
+                _post_key(pygame.KEYDOWN, pygame.K_LEFT)       # left column
+                _post_key(pygame.KEYUP,   pygame.K_LEFT)
             elif rel_x > third * 2:
-                _post_key(pygame.KEYDOWN, pygame.K_RIGHT)  # right third
+                _post_key(pygame.KEYDOWN, pygame.K_RIGHT)      # right column
+                _post_key(pygame.KEYUP,   pygame.K_RIGHT)
+            elif top_half:
+                _post_key(pygame.KEYDOWN, pygame.K_UP)         # top-centre → rotate
             else:
-                _post_key(pygame.KEYDOWN, pygame.K_UP)     # middle → rotate CW
+                _post_key(pygame.KEYDOWN, pygame.K_DOWN)       # bottom-centre → step down
+                _post_key(pygame.KEYUP,   pygame.K_DOWN)
             return True
 
     return False
@@ -289,6 +300,20 @@ def _handle_click(lx: float, ly: float, gs, app: AppState) -> bool:
         if BACK_RECT.collidepoint(pt):
             app.state = SETTINGS
             return True
+        if getattr(app, 'touch_enabled', False):
+            try:
+                from renderer_mobile import M_PRACTICE_BTN
+                if M_PRACTICE_BTN.collidepoint(pt):
+                    start_new_game(gs, app)
+                    app.state    = 'practice'
+                    app._practice_timer = 0
+                    return True
+            except (ImportError, Exception):
+                pass
+
+    elif app.state == 'practice':
+        # K_ESCAPE (T-piece MENU button) exits practice → CONTROLS
+        pass   # handled by keyboard ESC block below
 
     return False
 
@@ -398,8 +423,8 @@ def handle_input(gs: GameState, app: AppState, dt: int) -> None:
             elif event.key == pygame.K_a:
                 app.state = ABOUT
 
-        # ── PLAYING ──────────────────────────────────────────────────────────
-        elif app.state == PLAYING:
+        # ── PLAYING / PRACTICE ───────────────────────────────────────────────
+        elif app.state in (PLAYING, 'practice'):
             _CHEAT = [pygame.K_3, pygame.K_2, pygame.K_1]
             if event.key == _CHEAT[len(app._cheat_seq)]:
                 app._cheat_seq.append(event.key)
@@ -427,10 +452,13 @@ def handle_input(gs: GameState, app: AppState, dt: int) -> None:
                 app._debug_seq.clear()
 
             if event.key in (pygame.K_q, pygame.K_ESCAPE):
-                app.pre_pause_vol = pygame.mixer.music.get_volume()
-                pygame.mixer.music.set_volume(max(0.0, app.pre_pause_vol * 0.10))
-                app.pause_row = 0
-                app.state = PAUSED
+                if app.state == 'practice':
+                    app.state = CONTROLS
+                else:
+                    app.pre_pause_vol = pygame.mixer.music.get_volume()
+                    pygame.mixer.music.set_volume(max(0.0, app.pre_pause_vol * 0.10))
+                    app.pause_row = 0
+                    app.state = PAUSED
             elif event.key == pygame.K_LEFT:
                 app.keys_held.add(pygame.K_LEFT)
                 app.das_dir = -1; app.das_timer = 0; app.das_charged = False
