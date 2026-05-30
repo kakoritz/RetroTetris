@@ -646,11 +646,12 @@ def draw_mobile_leaderboard(surf, scores, hi_name=None, hi_score=None):
             _draw_shadow_text(surf, str(e["lines"]), 20, X_LINES, ry,
                               (160,200,255) if is_new else (110,130,160))
         else:
-            _draw_shadow_text(surf, f"{i+1}", 22, X_RANK, ry, (45, 45, 65))
-            _draw_shadow_text(surf, "---", 22, X_NAME, ry, (45, 45, 65))
-            _draw_shadow_text(surf, "-------", 20, X_SCORE, ry, (45, 45, 65))
-            _draw_shadow_text(surf, "-", 20, X_LVL, ry, (45, 45, 65))
-            _draw_shadow_text(surf, "-", 20, X_LINES, ry, (45, 45, 65))
+            dim = (48, 48, 70)
+            _draw_shadow_text(surf, f"{i+1}",    22, X_RANK,  ry, dim)
+            _draw_shadow_text(surf, "- - -",     22, X_NAME,  ry, dim)
+            _draw_shadow_text(surf, "0000000",   20, X_SCORE, ry, dim)
+            _draw_shadow_text(surf, "0",         20, X_LVL,   ry, dim)
+            _draw_shadow_text(surf, "0",         20, X_LINES, ry, dim)
 
         if i < 9:
             pygame.draw.line(surf, (28, 28, 48),

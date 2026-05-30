@@ -40,6 +40,73 @@ from game_logic import (
 MUSIC_END       = pygame.USEREVENT + 1
 INITIALS_CHARS  = "ABCDEFGHIJKLMNOPQRSTUVWXYZ "
 
+# ── board gesture tracker ─────────────────────────────────────────────────────
+_board_gestures: dict = {}   # finger_id → (start_lx, start_ly, dropped)
+_SWIPE_DROP_PX  = 70         # logical px downward movement = hard drop
+_TAP_MAX_PX     = 35         # logical px max movement to count as a tap
+
+
+def _post_key(evt_type: int, key: int) -> None:
+    pygame.event.post(
+        pygame.event.Event(evt_type, key=key, mod=0, unicode='', scancode=0))
+
+
+def _handle_board_gesture(event, app) -> bool:
+    """Track swipe-down and tap-rotate gestures on the game board area.
+    Returns True if the event was consumed as a gesture."""
+    if not getattr(app, 'touch_enabled', False):
+        return False
+    if app.state not in ('playing', 'clearing', 'cascading'):
+        return False
+
+    try:
+        from renderer_mobile import M_BOARD_X, M_BOARD_W, M_BOARD_Y, _INFO_ZONE_Y
+    except ImportError:
+        return False
+
+    lx = (event.x * app.touch_dw - app.touch_ox) / app.touch_scale
+    ly = (event.y * app.touch_dh - app.touch_oy) / app.touch_scale
+
+    # Only handle events that land on the board area
+    in_board = (M_BOARD_X <= lx <= M_BOARD_X + M_BOARD_W and
+                M_BOARD_Y  <= ly <= _INFO_ZONE_Y)
+
+    if event.type == pygame.FINGERDOWN:
+        if in_board:
+            _board_gestures[event.finger_id] = (lx, ly, False)
+        return False   # don't consume — let other handlers see it too
+
+    elif event.type == pygame.FINGERMOTION:
+        if event.finger_id not in _board_gestures:
+            return False
+        sx, sy, dropped = _board_gestures[event.finger_id]
+        if dropped:
+            return False
+        dy = ly - sy
+        dx = lx - sx
+        if dy > _SWIPE_DROP_PX and abs(dy) > abs(dx) * 1.5:
+            _post_key(pygame.KEYDOWN, pygame.K_SPACE)
+            _board_gestures[event.finger_id] = (sx, sy, True)  # mark as triggered
+            return True
+
+    elif event.type == pygame.FINGERUP:
+        if event.finger_id not in _board_gestures:
+            return False
+        sx, sy, dropped = _board_gestures.pop(event.finger_id)
+        if dropped:
+            return False
+        dx = abs(lx - sx)
+        dy = abs(ly - sy)
+        if dx < _TAP_MAX_PX and dy < _TAP_MAX_PX:
+            board_cx = M_BOARD_X + M_BOARD_W // 2
+            if lx >= board_cx:
+                _post_key(pygame.KEYDOWN, pygame.K_UP)   # rotate CW
+            else:
+                _post_key(pygame.KEYDOWN, pygame.K_z)    # rotate CCW
+            return True
+
+    return False
+
 
 def _resize_display(scale: float) -> pygame.Surface:
     w = int(SCREEN_WIDTH  * scale)
@@ -235,7 +302,7 @@ def handle_input(gs: GameState, app: AppState, dt: int) -> None:
             if app.state == PAUSED:
                 pygame.mixer.music.set_volume(app.pre_pause_vol * 0.10)
 
-        # FINGER events — check UI buttons first, then pass game controls
+        # FINGER events — check UI buttons first, then gestures, then button bar
         if event.type in (pygame.FINGERDOWN, pygame.FINGERUP, pygame.FINGERMOTION):
             if app.touch_enabled:
                 if event.type == pygame.FINGERDOWN:
@@ -243,6 +310,8 @@ def handle_input(gs: GameState, app: AppState, dt: int) -> None:
                     ly = (event.y * app.touch_dh - app.touch_oy) / app.touch_scale
                     if _handle_click(lx, ly, gs, app):
                         continue
+                # Board gestures (tap-rotate, swipe-drop)
+                _handle_board_gesture(event, app)
                 import touch_controls as _tc
                 _tc.handle(event, app.touch_dw, app.touch_dh,
                            app.touch_ox, app.touch_oy, app.touch_scale)
